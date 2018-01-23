@@ -1,3 +1,3 @@
 # DataScienceSpecializationCourseWork
 
-This folder contains the course work of data specialization of coursera.
+This repository contains the course work of data specialization of coursera.
