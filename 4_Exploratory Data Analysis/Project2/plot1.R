@@ -37,10 +37,15 @@ total_emission_year <- NEI %>% select(year,Emissions) %>%group_by(year) %>%
 ##-----------------------------------------------------------------------------
 ###-------------------------Total Eimssion Plot---------------------------------
 
-with(total_emission_year,plot(year,total_emissions,xlab = "Year",
-                              ylab = "Total Emsissions", 
-                              main="Total Emissions Per year in United States",
-                              pch=19))
+my_color <- colorRampPalette(c("red","green"))
+p<-with(total_emission_year,barplot(height=total_emissions/1000,names.arg = year,
+                                xlab = "Year",ylab = "Total Emsissions in kilo tons", 
+                                main="Total Emissions Per year in United States",
+                                ylim = c(0,8000),col = my_color(4))
+          )
+text(x = p, y = round(total_emission_year$total_emissions/1000,2), 
+     label = round(total_emission_year$total_emissions/1000,2),
+     pos = 3, cex = 0.8, col = "black")
 
 with(total_emission_year,lines(year,total_emissions))
 

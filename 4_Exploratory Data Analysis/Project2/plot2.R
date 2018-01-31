@@ -39,12 +39,17 @@ total_emissions_baltimore <- NEI %>% filter(fips == "24510") %>%
 ##-----------------------------------------------------------------------------
 ###-------------------------Total Eimssion Plot---------------------------------
 
-with(total_emissions_baltimore,plot(year,total_emissions,xlab = "Year",
-                              ylab = "Total Emsissions", 
-                              main="Total Emissions Per year in Baltimore City",
-                              pch=19))
+my_color <- colorRampPalette(c("red","green"))
 
-with(total_emissions_baltimore,lines(year,total_emissions))
+p<-with(total_emissions_baltimore,barplot(height=total_emissions,names.arg = year,
+                                    xlab = "Year",ylab = "Total Emsissions in kilo tons", 
+                                    main="Total Emissions Per year in Baltimore CIty",
+                                    ylim = c(0,8000),col = my_color(4))
+)
+with(total_emissions_baltimore,text(x = p, y = round(total_emissions,2), 
+     label = round(total_emissions,2),
+     pos = 3, cex = 0.8, col = "black"))
+
 
 dev.copy(png,"plot2.png")
 

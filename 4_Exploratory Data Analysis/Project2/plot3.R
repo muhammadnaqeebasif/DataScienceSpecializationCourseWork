@@ -1,6 +1,6 @@
 ##-------------------------------------------Project2---------------------------
 
-##Plot2.R
+##Plot3.R
 
 ##------------------------------Loading the data--------------------------------
 # downloading the source file
@@ -41,9 +41,11 @@ total_emissions_baltimore <- NEI %>% filter(fips == "24510") %>%
 
 library(ggplot2)
 
-g <- ggplot(data = total_emissions_baltimore,aes(year,total_emissions))
-g +facet_grid(type~.) + geom_point()+geom_line() + 
-  labs(title="Total Emissions per year in Baltimore City")
+g <- ggplot(data = total_emissions_baltimore,aes(factor(year),total_emissions,fill=type,
+                                                 label=round(total_emissions,2)))
+g +facet_grid(type~.,scales = "free") + geom_bar(stat = "identity") + 
+  labs(title="Total Emissions per year in Baltimore City")+xlab("year")+
+  ylab("Total emissions in tons")+geom_label(aes(fill=type),color="white")
 
 
 dev.copy(png,"plot3.png")
