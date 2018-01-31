@@ -1,6 +1,6 @@
 ##-------------------------------------------Project2---------------------------
 
-##Plot1.R
+##Plot2.R
 
 ##------------------------------Loading the data--------------------------------
 # downloading the source file
@@ -16,7 +16,7 @@ SCC <- readRDS("./Source_Classification_Code.rds")
 
 ##------------------------------------------------------------------------------
 
-##-------------------------------Checking the summary of the data---------------
+##-----------------------Checking the summary of the data-----------------------
 #Checking the structure of the data
 str(NEI)
 str(SCC)
@@ -27,41 +27,43 @@ summary(SCC)
 
 ##-----------------------------------------------------------------------------
 
-##----------------------------Total emission per year--------------------------
+##-----------Total emission per year in Baltimore City--------------------------
 library(dplyr)
-total_emission_year <- NEI %>% select(year,Emissions) %>%group_by(year) %>% 
-                        summarise(total_emissions = sum(Emissions))
+
+total_emissions_baltimore <- NEI %>% filter(fips == "24510") %>%
+  select(year,Emissions) %>%group_by(year) %>% 
+  summarise(total_emissions = sum(Emissions))
 
 ##-----------------------------------------------------------------------------
 
 ##-----------------------------------------------------------------------------
 ###-------------------------Total Eimssion Plot---------------------------------
 
-with(total_emission_year,plot(year,total_emissions,xlab = "Year",
+with(total_emissions_baltimore,plot(year,total_emissions,xlab = "Year",
                               ylab = "Total Emsissions", 
-                              main="Total Emissions Per year in United States",
+                              main="Total Emissions Per year in Baltimore City",
                               pch=19))
 
-with(total_emission_year,lines(year,total_emissions))
+with(total_emissions_baltimore,lines(year,total_emissions))
 
-dev.copy(png,"plot1.png")
+dev.copy(png,"plot2.png")
 
 dev.off()
 
 #-------------------------------------------------------------------------------
-##Have total emissions from PM2.5 decreased in the United States from 1999 to 2008?"
+##Have total emissions from PM2.5 decreased in the Baltimore City from 1999 to 2008?"
 
-if((total_emission_year[total_emission_year$year==2008,]$total_emissions) < 
-   (total_emission_year[total_emission_year$year==1999,]$total_emissions)){
+if((total_emissions_baltimore[total_emissions_baltimore$year==2008,]$total_emissions) < 
+   (total_emissions_baltimore[total_emissions_baltimore$year==1999,]$total_emissions)){
   
   bool_dec<-"Yes"
 
   }else {
- 
+  
     bool_dec<-"No" 
 
- }
+    }
 
-cat("Have total emissions from PM2.5 decreased in the United States from 1999 to 2008?",
+cat("Have total emissions from PM2.5 decreased in the Baltimore City from 1999 to 2008?",
     bool_dec)
 #---------------------------------------------------------------------------------
