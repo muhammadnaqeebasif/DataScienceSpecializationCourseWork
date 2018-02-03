@@ -1,0 +1,214 @@
+---
+title: "The Analysis on the effect of Severe Weather on Public Health and Economy"
+author: "Naqeeb Asif"
+date: "1 February 2018"
+output: html_document
+---
+
+# 1. Synopsis
+Severe weather events bring catastrophe with them. They can be drastic to human
+lives and can cause great damage to the economy. So it is better to be prepared
+for the severe weather events beforehand and take extra precautions for the events
+which do the most damage.<br> 
+The aim of this project is to explore U.S. National Oceanic and Atmospheric 
+Administration’s (NOAA) storm database and find out which event causes the most 
+damage to the human lives and economy.<br>
+After analysing the database it was found out that the most damage to the human lives 
+was done by tornadoes and the most damage done to the economy was by the floods.
+
+
+# 2. Obtaining the data
+## 2.1. Data
+The data for the anlaysis is in the form of a comma-separated-value file which is 
+compressed via the bzip2 algorithm to reduce its size. The data can be downloaded
+from the course website: [Storm Data](https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2)
+<br>
+The documentation of the data is also available and can be donwloaded from 
+[National Weather Service Storm Data Documentation](https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2Fpd01016005curr.pdf).
+The answers to some frequently asked questions are also avaible and can be 
+download from [National Climatic Data Center Storm Events FAQ](https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2FNCDC%20Storm%20Events-FAQ%20Page.pdf)
+<br>
+The database contains the recorde from year 1950 to Novemeber 2011. Due to the 
+lack of good records there are fewere events record in many earlier years of the 
+database. The record with the more recents year should be considered more complete.
+
+## 2.2. Loading the required libraries
+In this section the libraries required for the whole data are loaded. 
+
+```{r load_libraries,echo=TRUE,results='hide',warning=FALSE,message=FALSE}
+library(dplyr)
+library(data.table)
+library(ggplot2)
+library(lubridate)
+library(ggstance)
+library(grid)
+library(gridExtra)
+```
+
+## 2.3. Loading the data
+The data is first downloaded from the course website. It is then loaded into R.
+
+```{r load_data,echo=TRUE,results='hide',warning=FALSE,message=FALSE,cache=TRUE}
+
+download.file("https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2",
+              destfile = "./FStormData.csv.bz2")
+weather_data <- data.table(read.csv("./FStormData.csv.bz2"))
+```
+
+# 3. Data Processing
+
+This section illustrates the steps performed on the original data to get the required
+data only.
+
+## 3.1. Data for Analyzing Effects on Population Health
+
+This section illustrates how data for analyzing effects on population health was
+created. Three columns namely "EVTYPE","FATALITIES" and "INJURIES" were selected
+from the original data. The subset was then grouped by "EVETYPE" and for each event
+in "EVTYPE" total fatalities and total injuries were calculated and stored in 
+health_data table.  
+
+After creating health_data its two subset were created named fatalities_data and
+injuries_data which contain top10 total fatalities and top10 total injuries 
+respectively.
+
+```{r data_health,echo="TRUE",results="hide",results='hide',message=FALSE}
+
+health_data <- weather_data %>% select(EVTYPE,FATALITIES,INJURIES) %>% 
+               group_by(EVTYPE) %>% summarise(total_fatalities=sum(FATALITIES),
+                                              total_injuries=sum(INJURIES))
+
+fatalities_data <- health_data %>% select(-total_injuries) %>%
+                   arrange(desc(total_fatalities)) %>% top_n(10)
+
+injuries_data <- health_data %>% select(-total_fatalities) %>%
+                   arrange(desc(total_injuries)) %>% top_n(10)
+
+```
+
+## 3.2. Data for Analyzing effects on Economy
+
+This section illustrates how data for analyzing effects on population health was
+created. Five columns namely "EVTYPE","PROPDMG","PROPDMGEXP","CROPDMG" and "CROPDMGEXP"
+were selected from the original data. Two variables were introduced namely property_damge
+and crop_damage. There values were calculated PROPDMG,PROPDMGEXP and CROPDMG,CROPDMGEXP
+respectively. The values in PROPDMGEXP and CROPDMG were converted to number using
+exp_to_number function. Function exp_to_number converts properly according to the 
+values in PROPDMGEXP CROPDMG. The subset of the resultant data is then created using
+three columns "EVTYPE","property_damage" and "crop_damage" which is then group by
+EVETYPE and for each event in EVTYPE total property damage, total crop damage and 
+total damage are then calculated. The resultant dataset is then stored in the table
+economy_data.
+
+After creating economy_data its three subset were created named property_data,
+crop_data and total_ec_data were created which contain top10 total property ,
+top10 total crop and top 10 total damgages respectively. 
+
+```{r data_economy,echo="TRUE",results="hide",message=FALSE}
+
+exp_to_number = function(x){
+  v <- rep(0,length(x))
+  v[x %in% c("H","h") ] = 10^2
+  v[x %in% c("K","k") ] = 10^3
+  v[x %in% c("M","m") ] = 10^6
+  v[x %in% c("b","B") ] = 10^9
+  
+  v
+}
+
+economy_data <- weather_data %>% select(EVTYPE,PROPDMG,PROPDMGEXP,CROPDMG,CROPDMGEXP) %>%
+                mutate(property_damage = PROPDMG*exp_to_number(PROPDMGEXP),
+                       crop_damage = CROPDMG * exp_to_number(CROPDMGEXP)) %>%
+                select(EVTYPE,property_damage,crop_damage) %>%
+                group_by(EVTYPE) %>%summarise(total_property_dmg = sum(property_damage),
+                                            total_crop_dmg=sum(crop_damage)) %>%
+                mutate(total_damage=total_property_dmg+total_crop_dmg)
+
+property_data <- economy_data %>% select(EVTYPE,total_property_dmg) %>%
+                 arrange(desc(total_property_dmg)) %>%top_n(10) 
+
+crop_data <- economy_data %>% select(EVTYPE,total_crop_dmg) %>%
+                 arrange(desc(total_crop_dmg)) %>%top_n(10) 
+
+total_ec_data <- economy_data %>% select(EVTYPE,total_damage) %>%
+                 arrange(desc(total_damage)) %>%top_n(10) 
+
+```
+
+# 4. Results
+In this section results were produced according to the questions asked.
+
+## 4.1. Imapct on Health
+
+In this section the graph for predicting the imapct of severe weather events on 
+health was plotted.
+
+```{r results_health}
+pal <- colorRampPalette(c("green","red"))
+
+g1 <- ggplot(data=fatalities_data,aes(x=reorder(EVTYPE,total_fatalities),y=total_fatalities))+
+      geom_bar(stat = "identity",fill=pal(10)) +ylab("Total Fatalities") +xlab("Event Type")+
+      theme(plot.title = element_text(hjust = 0.5))+coord_flip() + 
+      labs(title="Impact of Severe Weather Events on Health")
+
+g2 <- ggplot(data=injuries_data,aes(x=reorder(EVTYPE,total_injuries),y=total_injuries))+
+      geom_bar(stat = "identity",fill=pal(10)) +ylab("Total Injuries") +xlab("Event Type")+
+      theme(plot.title = element_text(hjust = 0.5))+coord_flip()
+
+grid.arrange(g1,g2,ncol=1)
+```
+
+
+### 4.1.1 Analysis
+From the plot it can be seen that tornadoes caused the total fatalities as well as 
+total injuries in U.S.
+
+## 4.2. Impact on Economy
+
+In this section the graph for predicting the imapct of severe weather events on 
+economy was plotted. Two graph were plotted in this section. One graph gives the 
+damage done to property and crops and other graph gives the damage done to the 
+overall economy.
+
+### 4.2.1 Damage done to Property and Crops
+
+```{r results_property_crops}
+pal <- colorRampPalette(c("green","red"))
+
+p1 <- ggplot(data=property_data,aes(x=reorder(EVTYPE,total_property_dmg),
+                                    y=total_property_dmg))+geom_bar(stat = "identity",
+                                                                    fill=pal(10)) +
+      ylab("Total Property Damage in Dollars($)") +xlab("Event Type")+
+      theme(plot.title = element_text(hjust = 0.5))+coord_flip() + 
+      labs(title="Impact of Severe Weather Events on Property and Crops")
+
+p2 <- ggplot(data=crop_data,aes(x=reorder(EVTYPE,total_crop_dmg),y=total_crop_dmg))+
+      geom_bar(stat = "identity",fill=pal(10)) +ylab("Total Crop Damage in Dollars($)") +
+      xlab("Event Type")+coord_flip()
+
+
+grid.arrange(p1,p2,ncol=1)
+```
+
+### 4.2.2 Damage done to Overall Economy
+
+```{r total_resut}
+
+p3 <- ggplot(data=total_ec_data,aes(x=reorder(EVTYPE,total_damage),y=total_damage))+
+      geom_bar(stat = "identity",fill=pal(10)) +ylab("Total Damage to Economy in Dollars($)") +
+      xlab("Event Type")+theme(plot.title = element_text(hjust = 0.5))+coord_flip() + 
+      labs(title="Impact of Severee Weather Events on Overall Economy")
+
+p3
+```
+
+### 4.2.3 Analysis
+From the plot it can be seen floods caused the most damage to the property and 
+drought caused the most damage to the crops. Overall the floods caused the most 
+damage to the economy.
+
+#5. Conclusion
+From the results it can be concluded that the toranado caused the most damage to
+the injuries and people lives i.e. tornadoes impacted the human lives the most in United
+States. Wheras the floods casued the most damage to the property and draughts caused the most
+damage to the crops. Overall floods impacted the economy the most in United States.

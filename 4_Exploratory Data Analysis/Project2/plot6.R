@@ -1,6 +1,6 @@
 ##-------------------------------------------Project2---------------------------
 
-##Plot5.R
+##Plot6.R
 
 ##------------------------------Loading the data--------------------------------
 # downloading the source file
@@ -56,5 +56,5 @@ dev.copy(png,"plot6.png")
 
 dev.off()
 
-# In plot it can be seen that total emissions is incresed from 1999-2008 for Coal
-# Combustion in Baltimore City and there is no reading for year 2008.
+## As we can see from the bar plot that the values emssion is decreased 
+##considerably in Baltimore city  
