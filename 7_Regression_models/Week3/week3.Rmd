@@ -1,0 +1,279 @@
+---
+title: "Week3"
+author: "Naqeeb Asif"
+date: "18 February 2018"
+output: html_document
+---
+
+#Multivariable Regression
+## Example
+
+```{r}
+n<-100
+x <- rnorm(100)
+x2 <- rnorm(100)
+x3 <- rnorm(100)
+y <- 1 + x +x2 +x3 + rnorm(n,sd=0.1)
+ey <- resid(lm(y~x2+x3))
+ex <- resid(lm(x~x2+x3))
+sum(ey*ex)/sum(ex^2)
+coef(lm(y~x+x2+x3))
+```
+
+#Tips and Tricks
+
+## Swiss Data
+
+```{r}
+library(datasets)
+data("swiss")
+library(GGally)
+library(ggplot2)
+
+g <- ggpairs(swiss,lower = list(continuous="smooth"))
+g
+```
+
+## calling 'lm'
+
+```{r}
+summary(lm(Fertility~.,data=swiss))$coefficients
+summary(lm(Fertility~Agriculture,data=swiss))$coefficients
+```
+
+## Simulation
+```{r}
+n = 100; x2 <- 1 : n; x1 = .01 * x2 + runif(n, -.1, .1); 
+y = -x1 + x2 + rnorm(n, sd = .01)
+summary(lm(y ~ x1))$coef
+summary(lm(y ~ x1+x2))$coef
+```
+
+```{r}
+dat <- data.frame(y=y,x1=x1,x2=x2,ey=resid(lm(y~x1)),ex1=resid(lm(x1~x2)))
+g <- ggplot(data=dat,aes(y=y,x=x1,colour=x2))
+g <- g + geom_point(size=4,colour="grey50") + geom_smooth(method = lm, se=FALSE) +
+  geom_point(size=4)
+g
+```
+
+```{r}
+g2 <- ggplot(dat,aes(y=ey,x=ex1,colour=x2))
+g2 <- g2 + geom_point(colour="grey50",size=5)+ geom_smooth(method = lm, se=FALSE,colour="black") + 
+  geom_point(size=4)
+g2
+```
+
+## Insect Sprays
+```{r}
+require(datasets);data("InsectSprays");require(stats);require(ggplot2)
+g <- ggplot(data=InsectSprays,aes(x=spray,y=count,fill=spray))
+g <- g +geom_violin(colour="black",size=2)
+g <- g + xlab("Type of spray") + ylab("Insect count")
+g
+```
+```{r}
+summary(lm(count~.,data=InsectSprays))$coeff
+```
+
+```{r}
+summary(lm(count~.-1,data=InsectSprays))$coeff
+
+```
+
+```{r}
+spray2 <- relevel(InsectSprays$spray,"C")
+summary(lm(count~spray2,data=InsectSprays))$coeff
+```
+
+## Example 3
+
+```{r}
+library(datasets);data(swiss)
+head(swiss)
+```
+
+### Create a binary variable
+```{r}
+library(dplyr)
+swiss <- mutate(swiss,CatholicBin=factor(1*(Catholic>50)))
+
+```
+
+### Plot the data
+```{r}
+g <- ggplot(swiss,aes(x=Agriculture,y=Fertility,colour=CatholicBin))
+g <- g +geom_point(size=6,colour="black")+ geom_point(size=5)
+g <- g + xlab("% in Agriculture") + ylab("Fertitlity")
+g
+```
+
+## Example 4
+
+```{r}
+fit <- lm(Fertility ~Agriculture,data=swiss)
+g1 <- g
+g1 <- g1 +geom_abline(intercept = coef(fit)[1],slope=coef(fit)[2],size=2)
+g1
+```
+
+```{r}
+fit <- lm(Fertility ~Agriculture+ CatholicBin,data=swiss)
+g1 <- g
+g1 <- g1 +geom_abline(intercept = coef(fit)[1],slope=coef(fit)[2],size=2)
+g1 <- g1 +geom_abline(intercept = coef(fit)[1] +coef(fit)[3],slope=coef(fit)[2],size=2)
+g1
+```
+
+```{r}
+fit <- lm(Fertility ~Agriculture * CatholicBin,data=swiss)
+g1 <- g
+g1 <- g1 +geom_abline(intercept = coef(fit)[1],slope=coef(fit)[2],size=2)
+g1 <- g1 +geom_abline(intercept = coef(fit)[1] +coef(fit)[3],
+                      slope=coef(fit)[2]+coef(fit)[4],size=2)
+g1
+
+```
+
+## Adjustments
+
+```{r}
+library(ggplot2)
+n <- 100; t <- rep(c(0, 1), c(n/2, n/2)); x <- c(runif(n/2), runif(n/2));
+beta0 <- 0; beta1 <- 2; tau <- 1; sigma <- .2
+y <- beta0 + x * beta1 + t * tau + rnorm(n, sd = sigma)
+col <- factor(rep(c("type1","type2"),each=n/2))
+dat <- data.frame(x=x,y=y,type=col)
+plot(x, y, type = "n", frame = FALSE)
+abline(lm(y ~ x), lwd = 2)
+abline(h = mean(y[1 : (n/2)]), lwd = 3)
+abline(h = mean(y[(n/2 + 1) : n]), lwd = 3)
+fit <- lm(y ~ x + t)
+abline(coef(fit)[1], coef(fit)[2], lwd = 3)
+abline(coef(fit)[1] + coef(fit)[3], coef(fit)[2], lwd = 3)
+points(x, y, pch = 21, col = "black", bg = "lightblue", cex = 2)
+```
+
+```{r}
+fit <- lm(y ~ x)
+g <- ggplot(data=dat,aes(y=y,x=x,colour=type))
+g <- g + geom_point(size=5,colour="black")+geom_point(size=4)
+g <- g + geom_abline(intercept = coef(fit)[1],slope =coef(fit)[2],size=1.5)
+g <- g + geom_hline(yintercept = mean(y[1 : (n/2)]),size=1.5)
+g <- g + geom_hline(yintercept = mean(y[(n/2 +1):n]),size=1.5)
+fit2 <- lm(y~x+t)
+g <- g + geom_abline(intercept = coef(fit2)[1],slope=coef(fit2)[2],
+                     size=1.2)
+g <- g + geom_abline(intercept = coef(fit2)[1] + coef(fit2)[3],
+                     slope=coef(fit2)[2],size=1.2)
+g
+```
+
+#Residuals and Diagnostics 
+
+## Part1
+
+```{r}
+data("swiss");
+par(mfrow=c(2,2))
+fit <- lm(Fertility ~.,data=swiss);
+plot(fit)
+```
+
+## Part3
+
+```{r,message=FALSE}
+library(ggplot2)
+n <- 100;x <- c(10,rnorm(n));y<-c(10,rnorm(n))
+g <- ggplot(data=data.frame(x=x,y=y),aes(x=x,y=y))
+g + geom_point(colour="black",size=3) +
+  geom_point(colour="lightblue",size=2,alpha=0.6) +
+  geom_smooth(method = "lm",se=FALSE,colour="black")
+```
+
+### dfbetas
+```{r}
+fit <- lm(y~x)
+round(dfbetas(fit)[1:10,2],3)
+```
+
+### hatvalues
+```{r}
+round(hatvalues(fit)[1:10],3)
+```
+
+#Model selection
+## Part2
+```{r,message=FALSE}
+library(car)
+data("swiss")
+fit <- lm(Fertility~.,data=swiss)
+vif(fit)
+sqrt(vif(fit))
+```
+
+```{r}
+fit1 <- lm(Fertility~Agriculture,data=swiss)
+fit3 <- update(fit,Fertility~Agriculture+Examination+Education)
+fit5 <- update(fit,Fertility~Agriculture+Examination+Education+Catholic+Infant.Mortality)
+anova(fit1,fit3,fit5)
+```
+
+# Quiz3
+
+##Q1
+
+```{r}
+data("mtcars")
+mtcars$cyl <- factor(mtcars$cyl)
+fit <- lm(mpg~ cyl + wt,data=mtcars)
+fit
+```
+
+##Q2
+
+```{r}
+data("mtcars")
+mtcars$cyl <- factor(mtcars$cyl)
+fit1 <- lm(mpg~ cyl + wt,data=mtcars)
+fit1
+
+fit2 <- lm(mpg ~ cyl,data=mtcars)
+fit2
+```
+
+## Q3
+```{r}
+data("mtcars")
+mtcars$cyl <- factor(mtcars$cyl)
+fit1 <- lm(mpg~ cyl + wt,data=mtcars)
+summary(fit1)
+
+fit2 <- lm(mpg ~ cyl * wt,data=mtcars)
+summary(fit2)
+```
+## Q4
+
+```{r}
+lm(mpg ~ I(wt * 0.5) + factor(cyl), data = mtcars)
+
+```
+
+##Q5
+
+```{r}
+x <- c(0.586, 0.166, -0.042, -0.614, 11.72)
+y <- c(0.549, -0.026, -0.127, -0.751, 1.344)
+fit <- lm(y~x)
+max(influence(fit)$hat)
+```
+
+## Q6
+
+```{r}
+x <- c(0.586, 0.166, -0.042, -0.614, 11.72)
+y <- c(0.549, -0.026, -0.127, -0.751, 1.344)
+fit <- lm(y~x)
+influence.measures(fit)
+
+```

@@ -1,0 +1,91 @@
+---
+title: "Week1"
+author: "Naqeeb Asif"
+date: "7 February 2018"
+output: html_document
+---
+
+# Spam Example
+
+```{r}
+library(kernlab)
+data(spam)
+head(spam)
+```
+
+## Freuqency of your
+```{r,message=FALSE}
+library(ggplot2)
+library(dplyr)
+g <- ggplot(data=filter(spam),aes(your,colour=type))
+g + geom_line(stat = "density")+geom_vline(xintercept = 0) +
+  geom_hline(yintercept = 0)+ scale_colour_manual(values = c("blue","red"))+
+  xlab("Frequency for you") +labs(title="Spam or not spam ") +
+  theme(plot.title = element_text(hjust = 0.5)) +geom_vline(xintercept = 0.5,
+                                                            colour="black")
+
+```
+
+```{r}
+prediction <- ifelse(spam$your>0.5,"spam","nonspam")
+table(prediction,spam$type)/length(spam$type)
+```
+
+# In and Out of Sample Errors
+
+```{r,message=FALSE}
+library(kernlab)
+data(spam)
+set.seed(333)
+smallSpam <- spam[sample(dim(spam)[1],size=10),]
+g <- ggplot(data=smallSpam,aes(x=1:10,y=smallSpam$capitalAve,color=type))
+g + geom_point() + scale_color_manual(values = c("blue","red"))
+```
+
+## prediction rule 1
+```{r}
+rule1 <- function(x){
+  prediction <- rep(NA,length(x))
+  prediction[x>2.7] <- "spam"
+  prediction[x<2.40] <- "nonspam"
+  prediction[x >=2.4 & x<= 2.45] <- "spam"
+  prediction[x>2.45 & x<=2.7] <- "nonspam"
+  prediction
+}
+table(rule1(smallSpam$capitalAve),smallSpam$type)
+```
+
+## prediction rule 2
+
+```{r}
+rule2 <- function(x){
+  prediction <- rep(NA,length(x))
+  prediction[x>2.8] <- "spam"
+  prediction[x<=2.8] <- "nonspam"
+  prediction
+}
+table(rule2(smallSpam$capitalAve),smallSpam$type)
+```
+## Apply to complete spam data
+
+### rule1
+```{r}
+table(rule1(spam$capitalAve),spam$type)
+```
+
+### rule2
+```{r}
+table(rule2(spam$capitalAve),spam$type)
+```
+
+## Accuracy
+### rule1
+```{r}
+sum(rule1(spam$capitalAve) == spam$type)
+```
+
+### rule2
+```{r}
+sum(rule2(spam$capitalAve) == spam$type)
+```
+

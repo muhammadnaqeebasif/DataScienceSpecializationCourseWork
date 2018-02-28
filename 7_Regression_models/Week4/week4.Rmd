@@ -1,0 +1,130 @@
+---
+title: "Week4"
+author: "Naqeeb Asif"
+date: "21 February 2018"
+output: html_document
+---
+
+# GLM
+## Logistic Regression
+
+```{r}
+download.file("https://github.com/jtleek/dataanalysis/raw/master/week5/002binaryOutcomes/data/ravensData.rda "
+, destfile="./data/ravensData.rda")
+load("./data/ravensData.rda")
+head(ravensData)
+```
+
+```{r}
+lmRavens <- lm(ravenWinNum~ravenScore,data=ravensData)
+summary(lmRavens)$coef
+predict(lmRavens,newdata = data.frame(ravenScore=10))
+```
+
+## Visualizing fitting logistic regression curvers
+
+```{r}
+library(ggplot2)
+library(manipulate)
+x <- seq(-10,10,length=1000)
+myplot <- function(beta0,beta1){
+  h <- beta0 + x*beta1
+  y = exp(h)/(1+exp(h))
+  g <- ggplot(data = data.frame(x=x,y=y),aes(y=y,x=x))
+  g <- g + geom_line()
+  print(g)
+}
+manipulate(myplot(beta0,beta1),beta0=slider(-2,2,step=.1,initial = 2),
+           beta1=slider(-2,2,step=.1,initial = 2))
+```
+
+## Ravens logistic regression
+```{r}
+logRegRavens <- glm(ravenWinNum~ravenScore,data=ravensData,family = "binomial")
+summary(logRegRavens)
+```
+
+```{r}
+
+plot(ravensData$ravenScore,logRegRavens$fitted,pch=19)
+```
+
+```{r}
+
+exp(logRegRavens$coefficients)
+```
+```{r}
+exp(confint(logRegRavens))
+```
+
+```{r}
+anova(logRegRavens,test = "Chisq")
+```
+
+#Quiz 4
+
+##Q1
+```{r}
+library(MASS)
+logReg <- glm(use~wind,data=shuttle,family = "binomial")
+Coef <- coef(summary(logReg))
+exp(Coef[2,1])
+```
+
+##Q2
+```{r}
+library(MASS)
+logReg <- glm(use~wind+magn,data=shuttle,family = "binomial")
+Coef <- coef(summary(logReg))
+exp(Coef[2,1])
+
+```
+
+## Q3
+```{r}
+use <- as.numeric(shuttle$use=="auto")
+logReg <- glm(use~shuttle$wind,family = "binomial")
+Coef <- coef(summary(logReg))
+logReg2 <- glm(I(1-use)~shuttle$wind,family = "binomial")
+Coef2 <- coef(summary(logReg2))
+Coef
+print('------------------------------------------')
+Coef2
+```
+
+## Q4
+```{r}
+data("InsectSprays")
+fit <- glm(count~spray,data=InsectSprays,family = "poisson")
+Coef <- coef(summary(fit))
+exp(Coef[1,1])/exp(Coef[1,1]+Coef[2,1])
+```
+
+## Q5
+```{r}
+fit5 <- glm(count ~ factor(spray) + offset(log(rep(sum(count), length(count)))), 
+            family = "poisson", data = InsectSprays)
+fit5_10 <- glm(count ~ factor(spray) + 
+                   offset(log(10) + log(rep(sum(count), length(count)))), 
+               family = "poisson", data = InsectSprays)
+coef(summary(fit5))
+print("-----------------------------------------------------")
+coef(summary(fit5_10))
+```
+
+## Q6
+
+```{r}
+x <- -5:5
+y <- c(5.12, 3.93, 2.67, 1.87, 0.52, 0.08, 0.93, 2.05, 2.54, 3.87, 4.97)
+
+
+knots<-c(0)
+splineTerms<-sapply(knots,function(knot) (x>knot)*(x-knot))
+xmat<-cbind(1,x,splineTerms)
+fit<-lm(y~xmat-1)
+yhat<-predict(fit)
+
+summary(fit)$coef
+(yhat[11]-yhat[6])/5
+```

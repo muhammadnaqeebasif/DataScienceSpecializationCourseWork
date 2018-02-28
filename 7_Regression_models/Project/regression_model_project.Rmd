@@ -1,0 +1,206 @@
+---
+title: "Regression Model Project"
+author: "Naqeeb Asif"
+date: "23 February 2018"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+#Synopsis
+
+In this experiment mtcars data is explored. First the relationship between miles
+per gallon and transmission type is examined. It is found out that the transmission type 
+impacts the miles per gallon but after adding other features the transmission type
+becomes less significant. The residuals of the new model have almost normal distribution with few outliers.  
+
+
+```{r echo=FALSE}
+library(knitr)
+knitr::knit_hooks$set(inline = as.character)
+```
+# Loading the data
+In this section the data is loaded.
+
+```{r message=FALSE}
+data("mtcars")
+```
+
+# Data Processing
+
+In this section the exploratoty analysis is performed on the data.   
+
+## Converting Features to 'Factor' type
+In the dataset that somes features should not be of numeric type so lets convert those features to 'factor'. 
+
+```{r message=FALSE}
+library(dplyr)
+
+data_mtcars <- mtcars %>% mutate(cyl=factor(cyl), gear=factor(gear),carb=factor(carb),
+                                 vs=factor(vs,labels = c("V-shape","Straight Line"),
+                                           levels = c(0,1)),
+                                 am=factor(am,labels = c("Automatic","Manual"),
+                                           levels = c(0,1)))
+                  
+```
+
+# Exploratory Analysis
+
+In this section exploratory analysis is performed on the data.
+
+## Reltionship Between Miles per Gallon and Transmssion Type
+
+As it can be seen from the box plots in appendix, the mean of mpg for automatic
+transmission type is less than that of manual transmission type. Now lets 
+quantify the means.
+
+```{r,message=FALSE}
+library(dplyr)
+mData <- data_mtcars %>% select(mpg,am) %>%group_by(am) %>%summarise(mean=mean(mpg))
+```
+
+The mean of mpg for automatic transmission type is `r round(mData[1,2],2)` and the mean
+of mpg for manual transmission is `r round(mData[2,2],2)`. The difference between
+mean for the two transmission types are `r round(mData[2,2]-mData[1,2],2)`. So we
+can say that manual transission type gives better miles per gallon.
+
+##Result of exploratory analysis
+
+Different relationships can be seen from the plots in appenices 1 and 2. We can see 
+from the boxplots that mean of mpg varies for different values of the features. 
+From the scatter plot it can be seen that some features ('disp','hp'.'wt') 
+have inverse relation with mpg while other features  ('drat','qsec') have direct 
+relation with mpg. Form the correlation plot in appendix 4 it can be seen that the features 
+which impact 'mpg' the most are 'cyl','disp','hp' and 'wt'
+
+# Regression Model
+Now lets look at regression model between transmission type and miles per gallon
+
+```{r,message=FALSE,results='hide'}
+fit1 <- lm(mpg~am,data=data_mtcars)
+sum_model <-summary(fit1)
+```
+
+From the above results we can conclude the following:
+
+* p-value for the variable is ````r round(coef(sum_model)[2,4],4)```` which is less than 0.05
+so the model is acceptable.    
+
+* The coefficient beta0 is ````r round(coef(sum_model)[1,1],2)```` which is equal to the 
+mean of mpg for automatic transmission type.    
+
+* The coefficient beta1 ````r round(coef(sum_model)[2,1],2)```` which is equal to the difference
+between mean of mpg for two transmission types as explained above.    
+
+* The coefficients also give the result that mpg for manual transmission type is
+larger than that automatic transmission type.
+
+* r-squared is only ````r sum_model$r.squared ```` which means only 36% of the variance is covered by the model.
+
+# Better Model
+From the above results it can be seen that the model is not a good model .Lets
+add the four features ,which we found in the exploratory analysis, in the model.
+
+```{r,message=FALSE,results='hide'}
+
+better_fit <- update(fit1,mpg~am+cyl+disp+hp+wt)
+comp_models<-anova(fit1,better_fit)
+```
+
+From the above results it can be seen the model performs better than the previous 
+one as the p-value is ````r comp_models['Pr(>F)'][2,1]```` very close to 0.
+Now lets look at the summary of the model.
+
+```{r message=FALSE,results='hide'}
+summary_model <- summary(better_fit)
+```
+
+Above model gives  r-squared = ````r round(summary_model$r.squared,3)```` therefore it covers 
+86.6% variance and it is a better model.
+
+## Residual Plot analysis
+
+The residual plot is plotted in apendex 4 . Following are the results which are 
+obtained from the plots:  
+
+* No relation is found between residuals and fitted values showing that residuals
+have constant variance.  
+* Normal Q-Q plot indicates the normal distribution of the residuals.  
+
+* Leverage plot indicates that there are some outliers in the plot causing the 
+leverage in the plot.  
+
+# Conclusion
+We can conclude that manual transmission type car has more miles per gallon (average
+of 7) than the automatic transmission type. Moreover when we inculde other features
+then transmission type has less significant impact on the miles per gallon of the 
+car. The residual obtained after fitting the most correlated features have constant
+variance and almost normal distribution.
+
+
+# Appendix
+
+## A.1 BoxPlots between mpg and differnt factor features.
+```{r message=FALSE,fig.height=9,fig.width=10,echo=FALSE}
+library(ggplot2)
+library(gridExtra)
+
+g <- ggplot(data = data_mtcars,aes(y=mpg))
+g1 <- g + geom_boxplot(aes(x=cyl,fill=cyl)) + labs(title="Cyl vs mpg") +
+      theme(plot.title = element_text(hjust = 0.5))
+g2 <- g + geom_boxplot(aes(x=vs,fill=vs)) + labs(title="VS vs mpg") +
+      theme(plot.title = element_text(hjust = 0.5))
+g3 <- g + geom_boxplot(aes(x=am,fill=am)) + labs(title="am vs mpg") +
+      theme(plot.title = element_text(hjust = 0.5))
+g4 <- g + geom_boxplot(aes(x=gear,fill=gear)) + labs(title="gear vs mpg") +
+      theme(plot.title = element_text(hjust = 0.5))
+g5 <- g + geom_boxplot(aes(x=carb,fill=carb)) + labs(title="carb vs mpg") +
+      theme(plot.title = element_text(hjust = 0.5))
+grid.arrange(g1,g2,g3,g4,g5,ncol=3,top="BoxPlot")
+```
+
+## A.2 Scatter Plots between mpg and numerical features
+```{r message=FALSE,fig.height=6,fig.width=10,echo=FALSE}
+library(ggplot2)
+library(gridExtra)
+
+g <- ggplot(data = data_mtcars,aes(y=mpg))
+g1 <- g + geom_point(aes(x=disp)) + labs(title="disp vs mpg") +
+      theme(plot.title = element_text(hjust = 0.5)) +
+      geom_smooth(method = "lm",se=FALSE,aes(x=disp))
+
+g2 <- g + geom_point(aes(x=hp)) + labs(title="hp vs mpg") +
+      theme(plot.title = element_text(hjust = 0.5)) +
+      geom_smooth(method = "lm",se=FALSE,aes(x=hp))
+
+g3 <- g + geom_point(aes(x=drat)) + labs(title="drat vs mpg") +
+      theme(plot.title = element_text(hjust = 0.5)) +
+      geom_smooth(method = "lm",se=FALSE,aes(x=drat))
+
+g4 <- g + geom_point(aes(x=wt)) + labs(title="wt vs mpg") +
+      theme(plot.title = element_text(hjust = 0.5)) +
+      geom_smooth(method = "lm",se=FALSE,aes(x=wt))
+
+g5 <- g + geom_point(aes(x=qsec)) + labs(title="qsec vs mpg") +
+      theme(plot.title = element_text(hjust = 0.5)) +
+      geom_smooth(method = "lm",se=FALSE,aes(x=qsec))
+
+grid.arrange(g1,g2,g3,g4,g5,ncol=3,top="Scatter Plot")
+
+```
+
+## A.3 Correlation Plot between different variables
+
+```{r message=FALSE,fig.height=6,fig.width=10,echo=FALSE}
+library(GGally)
+data(mtcars)
+ggcorr(mtcars,label = TRUE) + labs(title="Correlation Plot")+
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+
+## A.4 Residual Plot of the model
+```{r message=FALSE,fig.height=10,fig.width=10,echo=FALSE}
+library(ggfortify)
+autoplot(better_fit)
+```

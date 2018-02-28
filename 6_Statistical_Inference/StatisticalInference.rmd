@@ -1,0 +1,572 @@
+---
+title: "Statistical Inference"
+author: "Naqeeb Asif"
+date: "4 February 2018"
+output: html_document
+---
+
+# Probability density functions
+
+```{r}
+x <- c(-0.5,0,1,1,1.5)
+y <- c(0,0,2,0,0)
+plot(x,y,lwd=3,frame=FALSE,type="l")
+```
+
+## Beta pdf
+```{r}
+pbeta(0.75,2,1)
+```
+
+# Expected Values
+
+```{r ,message=FALSE}
+library(UsingR); data(galton); library(ggplot2); library(reshape2)
+longGalton <- melt(galton, measure.vars = c("child", "parent"))
+g <- ggplot(longGalton, aes(x = value)) + geom_histogram(aes(y = ..density.., fill = variable), binwidth=1, color = "black") + geom_density(size = 2)
+g <- g + facet_grid(. ~ variable)
+g
+```
+
+```{r,message=FALSE}
+# library(manipulate)
+# myHist <- function(mu){
+# g <- ggplot(galton, aes(x = child))
+# g <- g + geom_histogram(fill = "salmon",
+# binwidth=1, aes(y = ..density..), color = "black")
+# g <- g + geom_density(size = 2)
+# g <- g + geom_vline(xintercept = mu, size = 2)
+# mse <- round(mean((galton$child - mu)^2), 3)
+# g <- g + labs(title = paste('mu = ', mu, ' MSE = ', mse))
+# g
+# }
+# manipulate(myHist(mu), mu = slider(62, 74, step = 0.5))
+
+```
+
+#Simulation
+
+```{r}
+sim_avg_flips=function(n,n_avg_list){
+  res <- rep(NA,n*length(n_avg_list))
+  i=1
+  for(l in 1:length(n_avg_list)){
+    while(i<=l*n){
+      res[i]=mean(rbinom(n_avg_list[l],1,prob = 0.5))
+      i=i+1
+    }
+  }
+  res
+}
+n=10000
+data <- data.frame(size=factor(rep(c(1,10,20,30),each=n)),
+                   x=sim_avg_flips(n,c(1,10,20,30)))
+
+g <- ggplot(data=data,aes(x,fill=size))
+g+facet_grid(.~size)+geom_histogram(bins = 10,colour=c('black'))
+```
+
+```{r}
+sim_avg_rolls=function(n,n_avg_list){
+  res <- numeric()
+  for(l in n_avg_list){
+    res <- c(res,replicate(n=n,mean(sample(1:6,l,replace = TRUE))))
+  }
+  res
+}
+n=10000
+data <- data.frame(size=factor(rep(c(1,2,3,4),each=n)),
+                   x=sim_avg_rolls(n,c(1,2,3,4)))
+
+g <- ggplot(data=data,aes(x,fill=size))
+g+facet_grid(.~size)+geom_histogram(bins = 20,colour=c('black'))
+```
+
+# Variation
+
+```{r}
+p = seq(0 , 1, length = 1000)
+y = p * (1 - p)
+plot(p, y, type = "l", lwd = 3, frame = FALSE)
+     
+```
+
+## Variance of x die rolls
+
+```{r}
+n=10000
+data <- data.frame(size=factor(rep(c(10,20,30),each=n)),
+                   x=sim_avg_rolls(n,c(10,20,30)))
+
+g <- ggplot(data=data,aes(x,fill=size))
+g+facet_grid(.~size)+ geom_histogram(bins = 10,colour=c('black')) +
+  geom_vline(aes(xintercept=mean(x)),size=2)
+```
+
+# Common Distributions
+## Binomila trials
+
+Suppose a friend has 8 children, 7 of which are girls and none are twins. If each
+gender has an independent 50% probability for each birth, what’s the probability 
+of getting 7 or more girls out of 8 births?
+
+```{r}
+choose(8,7) *0.5^8 + choose(8,8) *0.5^8
+```
+
+
+```{r}
+pbinom(6,size=8,0.5,lower.tail = FALSE)
+
+```
+
+## Normal Distribution
+What is the 95th percentile of a N(µ; σ2) distribution?
+```{r}
+qnorm(0.95)
+
+```
+To put some context on our previous setting, population mean BMI for men is reported as² 29
+kg/mg2 with a standard deviation of 4.73. Assuming normality of BMI, what is the population
+95th percentile? 
+
+```{r}
+mu <- 29
+v <- 4.73 
+1.645*v +mu
+```
+
+```{r}
+qnorm(0.95,mean = 29,sd=4.73)
+```
+
+
+Assume that the number of daily ad clicks for a company is (approximately) normally distributed
+with a mean of 1020 and a standard deviation of 50. What’s the probability of getting more than
+1,160 clicks in a day? 
+
+```{r}
+pnorm(1160,mean = 1020,sd = 50,lower.tail = FALSE) *100
+```
+
+Consider the previous example again. What number of daily ad clicks would represent the one where
+75% of days have fewer clicks (assuming days are independent and identically distributed)?
+
+```{r}
+qnorm(0.75,mean=1020,sd=50)
+```
+
+## Poisson Distribution
+The number of people that show up at a bus stop is Poisson with a mean of 2.5 per hour. If watching
+the bus stop for 4 hours, what is the probability that 3 or fewer people show up for the whole
+time?
+
+```{r}
+ppois(3,2.5*4)
+```
+
+### Poisson approximation to the binomial
+
+We flip a coin with success probability 0.01 five hundred times. What’s the probability of 2 or fewer
+successes?
+
+```{r}
+(choose(500,2)*0.01^2 *(1-0.01)^498) +(choose(500,1)*0.01^1 *(1-0.01)^499)
+```
+
+```{r}
+
+pbinom(2,500,prob = 0.01)
+```
+
+```{r}
+ppois(2,lambda = 500*0.01)
+```
+
+## Exercises
+Your friend claims that changing the font to comic sans will result in more ad revenue on your
+web sites. When presented in random order, 9 pages out of 10 had more revenue when the
+font was set to comic sans. If it was really a coin flip for these 10 sites, what’s the probability
+of getting 9 or 10 out of 10 with more revenue for the new font?
+
+```{r}
+pbinom(8,10,lower.tail = F,prob = 0.5)
+```
+
+A software company is doing an analysis of documentation errors of their products. They
+sampled their very large codebase in chunks and found that the number of errors per chunk
+was approximately normally distributed with a mean of 11 errors and a standard deviation of
+2. When randomly selecting a chunk from their codebase, whats the probability of fewer than
+5 documentation errors?
+
+```{r}
+pnorm(5,mean = 11,sd=2)
+```
+
+The number of search entries entered at a web site is Poisson at a rate of 9 searches per minute.
+The site is monitored for 5 minutes. What is the probability of 40 or fewer searches in that
+time frame?
+
+```{r}
+ppois(40,lambda = 9*5)
+```
+
+Suppose that the number of web hits to a particular site are approximately normally
+distributed with a mean of 100 hits per day and a standard deviation of 10 hits per day. What’s
+the probability that a given day has fewer than 93 hits per day expressed as a percentage to
+the nearest percentage point?
+
+```{r}
+pnorm(93,mean=100,sd=10)
+```
+
+Suppose that the number of web hits to a particular site are approximately normally
+distributed with a mean of 100 hits per day and a standard deviation of 10 hits per day. What
+number of web hits per day represents the number so that only 5% of days have more hits?
+Watch a video solution⁶ and see the problem and solution⁷.
+
+```{r}
+qnorm(0.05,mean=100,sd=10,lower.tail = F)
+```
+
+
+Suppose that the number of web hits to a particular site are approximately normally
+distributed with a mean of 100 hits per day and a standard deviation of 10 hits per day. Imagine
+taking a random sample of 50 days. What number of web hits would be the point so that only
+5% of averages of 50 days of web traffic have more hits? Watch a video solution⁸ and see the
+problem and solution⁹
+
+```{r}
+qnorm(0.05,mean=100,sd=10/sqrt(50),lower.tail = F)
+
+```
+
+You don’t believe that your friend can discern good wine from cheap. Assuming that you’re
+right, in a blind test where you randomize 6 paired varieties (Merlot, Chianti, …) of cheap and
+expensive wines. What is the change that she gets 5 or 6 right?
+
+```{r}
+pbinom(4, prob = .5, size = 6, lower.tail = FALSE)
+
+```
+
+The number of web hits to a site is Poisson with mean 16.5 per day. What is the probability of
+getting 20 or fewer in 2 days?
+
+```{r}
+ppois(20,16.5*2)
+```
+
+#  Asymptopia
+
+## Law of Large Numbers
+
+```{r}
+library(ggplot2)
+
+n <- 10000
+means <- cumsum(rnorm(n))/(1:n)
+library(ggplot2)
+g <- ggplot(data.frame(x = 1:n, y = means), aes(x = x, y = y))
+g <- g + geom_hline(yintercept = 0) + geom_line(size = 2)
+g <- g + labs(x = "Number of obs", y = "Cumulative mean")
+g
+```
+
+### Coin Flips
+
+```{r}
+means <- cumsum(sample(0:1,n,replace = TRUE))/1:n
+g<-ggplot(data.frame(x=1:n,y=means),aes(x=x,y=y))
+g<- g + geom_hline(yintercept = 0.5) +geom_line(size=2)
+g <- g + labs(x = "Number of obs", y = "Cumulative mean")
+g
+```
+
+## CLT
+
+
+### Die rolling
+
+```{r}
+sim_scaled_avg_rolls=function(n,n_avg_list){
+  res <- numeric()
+  for(l in n_avg_list){
+    
+    res <- c(res,scale(replicate(n=n,mean(sample(1:6,l,replace = TRUE)))))
+  }
+  res
+}
+data <- data.frame(size=factor(rep(c(10,20,30),each=n)),
+                   x=sim_scaled_avg_rolls(n,c(10,20,30)))
+
+g <- ggplot(data = data,aes(x,fill=size))
+g + facet_grid(.~size) +geom_histogram(aes(y=..density..),colour="black")+
+  stat_function(fun=dnorm,size=2)
+
+```
+
+### Coin Flips
+
+```{r}
+sim_scaled_avg_flips=function(n,n_avg_list){
+  res <- numeric()
+  for(l in n_avg_list){
+    
+    res <- c(res,scale(replicate(n=n,mean(sample(0:1,l,replace = TRUE)))))
+  }
+  res
+}
+data <- data.frame(size=factor(rep(c(10,20,30),each=n)),
+                   x=sim_scaled_avg_flips(n,c(10,20,30)))
+
+g <- ggplot(data = data,aes(x,fill=size))
+g + facet_grid(.~size) +geom_histogram(aes(y=..density..),colour="black")+
+  stat_function(fun=dnorm,size=2)
+
+```
+
+## Confidence Interval
+
+```{r}
+library(UsingR)
+data(father.son)
+x<-father.son$sheight
+(mean(x)+c(-1,1)*qnorm(0.975)*sd(x)/sqrt(length(x)))/12
+```
+
+# t Confidence Interval
+## Manipulate
+```{r}
+library(ggplot2)
+library(manipulate)
+k <- 100
+xvals <- seq(-5,5,length=k)
+myplot <- function(df){
+  d <- data.frame(y=c(dnorm(xvals),dt(xvals,df)),
+                  x=xvals, dist= factor(rep(c("Normal","T"),c(k,k))))
+  g <- ggplot(d, aes(x = x, y = y))
+  g <- g + geom_line(size = 2, aes(color = dist))
+  g
+}
+manipulate(myplot(mu),mu=slider(1,20,step=1))
+```
+
+## Qunatiles
+```{r}
+pvals <- seq(.5, .99, by = .01)
+myplot2 <- function(df){
+d <- data.frame(n= qnorm(pvals),t=qt(pvals, df),
+p = pvals)
+g <- ggplot(d, aes(x= n, y = t))
+g <- g + geom_abline(size = 2, col = "lightblue")
+g <- g + geom_line(size = 2, col = "black")
+g <- g + geom_vline(xintercept = qnorm(0.975))
+g <- g + geom_hline(yintercept = qt(0.975, df))
+g
+}
+manipulate(myplot2(df), df = slider(1, 20, step = 1))
+```
+
+## Sleep data
+```{r}
+data(sleep)
+head(sleep)
+
+g1 <- sleep$extra[1 : 10]; g2 <- sleep$extra[11 : 20]
+difference <- g2 - g1
+mn <- mean(difference); s <- sd(difference); n <- 10
+## Calculating directly
+mn + c(-1, 1) * qt(.975, n-1) * s / sqrt(n)
+## using R's built in function
+t.test(difference)
+## using R's built in function, another format
+t.test(g2, g1, paired = TRUE)
+## using R's built in function, another format
+t.test(extra ~ I(relevel(group, 2)), paired = TRUE, data = sleep)
+```
+
+## T test in R
+
+```{r,message=FALSE}
+library(UsingR)
+data(father.son)
+t.test(father.son$sheight,father.son$fheight,paired = TRUE)
+```
+
+# Quiz3
+## Q1)
+
+```{r}
+sample_avg <- 1100
+sample_sd <- 30
+tquantile <- qt(0.975,8)
+sample_avg +c(-1,1)*tquantile *sample_sd/sqrt(9)
+```
+
+##Q2
+```{r}
+n=9
+avg <- -2
+tquantile <- qt(0.975,n-1)
+v <- -1 * avg *sqrt(9)/tquantile
+v
+```
+## Q4
+```{r}
+conf_interval=function(mean_x,var_x,n_x,mean_y,var_y,n_y,quantile){
+  var_p <- ((n_x-1)*var_x +(n_y-1)*var_y)/(n_x+n_y-2)
+  confidence_interval <- mean_y - mean_x +c(-1,1)* qt(quantile,n_x+n_y-2)* 
+                          sqrt(var_p * (1/n_x +1/n_y))
+  
+  confidence_interval
+}
+mean_y<- 3
+var_y <- 0.6
+n_y <- 10
+mean_x <- 5
+var_x <- 0.68
+n_x <- 10
+conf_interval(mean_x,var_x,n_x,mean_y,var_y,n_y,0.975)
+```
+
+##Q6
+
+```{r}
+mean_x<- 4
+var_x <- 0.5^2
+n_x <- 100
+mean_y <- 6
+var_y <- 4
+n_y <- 100
+conf_interval(mean_x,var_x,n_x,mean_y,var_y,n_y,0.975)
+
+```
+## Q7 
+```{r}
+
+conf_interval=function(mean_x,var_x,n_x,mean_y,var_y,n_y,quantile){
+  var_p <- ((n_x-1)*var_x +(n_y-1)*var_y)/(n_x+n_y-2)
+  confidence_interval <- mean_y - mean_x +c(-1,1)* qt(quantile,n_x+n_y-2)* 
+                          sqrt(var_p * (1/n_x +1/n_y))
+  
+  confidence_interval
+}
+m_y <- -3
+v_y <- 1.5 ^2
+n_y <- 9
+n_x <- 9
+m_x <- 1
+v_x <- 1.8^2
+conf_interval(m_x,v_x,n_x,m_y,v_y,n_y,0.95)
+```
+
+#Week 4
+
+## Calculating power for gaussian data
+```{r}
+alpha <- 0.05
+mua <- 32
+mu0 <- 30
+n <- 16
+sigma <- 4
+z <- qnorm(1-alpha)
+pnorm(mu0 + z*sigma/sqrt(n),mean=mu0,sd=sigma/sqrt(n),lower.tail = FALSE)
+```
+```{r}
+pnorm(mu0 + z*sigma/sqrt(n),mean=mua,sd=sigma/sqrt(n),lower.tail = FALSE)
+
+```
+
+
+## Plotting the power curve
+
+```{r}
+library(ggplot2)
+alpha <- 0.05
+power_values <- as.numeric()
+mua <- seq(30,35,0.1)
+mu0 <- 30
+n <- c(8,16,32,64,128)
+sigma <- 4
+z <- qnorm(1-alpha)
+for(i in n){
+  power_values <- c(power_values,pnorm(mu0+ z*sigma/sqrt(i),mean=mua,
+                                       sd=sigma/sqrt(i),lower.tail = FALSE)
+                    )
+}
+power_df <- data.frame(power=power_values,mua=rep(mua,5),n=factor(rep(n,each=length(mua))))
+
+g <- ggplot(data <- power_df,aes(x=mua,y=power,colour=n))
+g + geom_line(size=1.5)
+```
+
+## T Test Power
+```{r}
+power.t.test(n=16,delta = 2/4,type = "one.sample",sd=1,alternative = "one.sided")$power
+```
+
+```{r}
+power.t.test(n=16,delta = 2,type = "one.sample",sd=4,alternative = "one.sided")$power
+```
+
+```{r}
+power.t.test(n=16,delta = 100,type = "one.sample",sd=200,alternative = "one.sided")$power
+```
+
+```{r}
+power.t.test(power=0.8,delta = 100,type = "one.sample",sd=200,alternative = "one.sided")$n
+```
+
+# Quiz 4
+
+##Q1
+```{r}
+dat <- data.frame(Subject=1:5,BaseLine = c(140,138,150,148,135),
+                  Week2 = c(132,135,151,146,130))
+t.test(dat$BaseLine,dat$Week2,paired = TRUE)
+```
+
+##Q2
+```{r}
+(1100+c(-1,1)*qt(0.975,8)*30/sqrt(9))
+```
+
+##Q3
+
+```{r}
+n <- 4
+x <-3
+test <- binom.test(x=x,n=n,alternative = "greater")
+test
+```
+
+## Q5
+```{r}
+mux <- -3
+n <- 9
+sdx <- 1.5
+muy <- 1
+sdy <- 1.8
+sdxy <- sqrt(((n-1)*sdx^2 +(n-1)*sdy^2)/(n+n-2))
+q <- (mux -muy-0)/(sdxy * sqrt(2/n ))
+pt(q,df = 2*n-1)
+```
+
+## Q4
+```{r}
+rate <- 1/100
+e <- 10
+days <- 1787
+poisson.test(e,T=days,r=rate,alt="less")
+```
+
+## Q7
+```{r}
+power.t.test(n=100,sd=0.04,delta = 0.01,alternative = "one.sided",sig.level = 0.05,type = "one.sample")
+```
+
+## Q8
+```{r}
+power.t.test(power = 0.90,sd=0.04,delta = 0.01,alternative = "one.sided",sig.level = 0.05,type = "one.sample")
+```

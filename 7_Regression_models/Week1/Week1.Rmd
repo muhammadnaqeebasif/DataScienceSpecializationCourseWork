@@ -1,0 +1,138 @@
+---
+title: "Week1"
+author: "Naqeeb Asif"
+date: "6 February 2018"
+output: html_document
+---
+
+# Basic Least Squares
+
+```{r,message=FALSE}
+
+library(UsingR)
+library(reshape)
+library(ggplot2)
+data(galton)
+long <- melt(galton)
+
+g <- ggplot(long,aes(x=value,fill=variable))
+g <- g +geom_histogram(colour="black",binwidth = 1)
+g <- g +facet_grid(.~variable)
+g
+
+```
+
+```{r}
+
+library(manipulate)
+myHist <- function(mu){
+mse <- mean((galton$child - mu)^2)
+g <- ggplot(galton, aes(x = child)) + geom_histogram(fill = "salmon", colour= "black", binwidth=1)
+g <- g + geom_vline(xintercept = mu, size = 3)
+g <- g + ggtitle(paste("mu = ", mu, ", MSE = ", round(mse, 2), sep = ""))
+g
+}
+manipulate(myHist(mu), mu = slider(62, 74, step = 0.5))
+
+```
+
+# Comparing Children and parent heights
+
+```{r}
+ggplot(galton, aes(x = parent, y = child)) + geom_point()
+```
+
+```{r,message=FALSE}
+library(dplyr)
+freqData <- as.data.frame(table(galton$child, galton$parent))
+names(freqData) <- c("child", "parent", "freq")
+freqData$child <- as.numeric(as.character(freqData$child))
+freqData$parent <- as.numeric(as.character(freqData$parent))
+g <- ggplot(filter(freqData, freq > 0), aes(x = parent, y = child))
+g <- g  + scale_size(range = c(2, 20), guide = "none" )
+g <- g + geom_point(colour="grey50", aes(size = freq+20, show_guide = FALSE))
+g <- g + geom_point(aes(colour=freq, size = freq))
+g <- g + scale_colour_gradient(low = "lightblue", high="white")                    
+g
+```
+
+# Exercise
+Take the Galton and obtain the regression through the origin slope estimate where the centered
+parental height is the outcome and the child’s height is the predictor
+
+```{r,message=FALSE}
+
+freqData <- as.data.frame(table(galton$child, galton$parent))
+names(freqData) <- c("child", "parent", "freq")
+freqData$child <- as.numeric(as.character(freqData$child))
+freqData$parent <- as.numeric(as.character(freqData$parent))
+g <- ggplot(filter(freqData, freq > 0), aes(y = parent, x = child))
+g <- g  + scale_size(range = c(2, 20), guide = "none" )
+g <- g + geom_point(colour="grey50", aes(size = freq+20, show_guide = FALSE))
+g <- g + geom_point(aes(colour=freq, size = freq))
+g <- g + scale_colour_gradient(low = "lightblue", high="white")                    
+g
+```
+
+# Linear Least Squares
+```{r,message=FALSE}
+library(UsingR)
+data(galton)
+library(dplyr)
+freqData <- as.data.frame(table(galton$child,galton$parent))
+names(freqData) <- c("child","parent","freq")
+freqData$child <- as.numeric(as.character(freqData$child))
+freqData$parent <- as.numeric(as.character(freqData$parent))
+g <- ggplot(data=filter(freqData,freq>0),aes(parent,child))
+g <- g +scale_size(range = c(2,20),guide="none")
+g <- g + geom_point(colour="grey50",aes(size=freq+20))
+g <- g + geom_point(aes(colour=freq,size = freq))
+g <- g + scale_colour_gradient(low="lightblue",high = "white")
+g
+```
+
+```{r}
+y <- galton$child
+x <- galton$parent
+beta1 <- cor(y,x) * sd(y) / sd(x)
+beta0 <- mean(y) - beta1 * mean(x)
+rbind(c(beta0,beta1),coef(lm(y~x)))
+```
+
+## Reversing the relationship
+
+```{r}
+x <- galton$child
+y <- galton$parent
+beta1 <- cor(y,x) * sd(y) / sd(x)
+beta0 <- mean(y) - beta1 * mean(x)
+rbind(c(beta0,beta1),coef(lm(y~x)))
+
+```
+
+## Slope is correlation if x and y are normalized
+```{r}
+y <- galton$child
+x <- galton$parent
+xn <- scale(x)
+yn <- scale(y)
+c(cor(y,x),cor(yn,xn),coef(lm(yn~xn-1)))
+```
+
+```{r}
+library(UsingR)
+data(galton)
+library(dplyr)
+freqData <- as.data.frame(table(galton$child,galton$parent))
+names(freqData) <- c("child","parent","freq")
+freqData$child <- as.numeric(as.character(freqData$child))
+freqData$parent <- as.numeric(as.character(freqData$parent))
+g <- ggplot(data=filter(freqData,freq>0),aes(parent,child))
+g <- g +scale_size(range = c(2,20),guide="none")
+g <- g + geom_point(colour="grey50",aes(size=freq+20))
+g <- g + geom_point(aes(colour=freq,size = freq))
+g <- g + scale_colour_gradient(low="lightblue",high = "white")
+g <- g +geom_smooth(method = "lm")
+g
+```
+
