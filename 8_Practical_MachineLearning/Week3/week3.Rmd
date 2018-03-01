@@ -1,0 +1,242 @@
+---
+title: "Week3"
+author: "Naqeeb Asif"
+date: "28 February 2018"
+output: html_document
+---
+
+#Predicting with trees
+
+## Example: Iris Data
+
+```{r}
+
+data("iris");library(ggplot2)
+names(iris)
+```
+
+```{r}
+table(iris$Species)
+```
+
+training test sets
+
+```{r}
+library(caret)
+inTrain <- createDataPartition(y=iris$Species,p=0.7,list=F)#
+training <- iris[inTrain,]
+testing <- iris[-inTrain,]
+dim(training);dim(testing)
+```
+
+iris petal width
+
+```{r}
+g <- ggplot(data=training,aes(x=Petal.Width,y=Sepal.Width,colour=Species))
+g +geom_point()
+```
+
+##Model
+
+```{r}
+library(caret)
+modFit <- train(Species~.,method="rpart",data=training)
+print(modFit$finalModel)
+```
+
+###plot tree
+
+```{r}
+plot(modFit$finalModel,uniform = TRUE)
+
+text(modFit$finalModel,use.n = TRUE,all=TRUE)
+```
+
+##Prettier plots
+
+```{r}
+library(rattle)
+fancyRpartPlot(modFit$finalModel)
+```
+
+## Predicting new values
+
+```{r}
+predict(modFit,newdata = testing)
+```
+
+# Bagging
+```{r message=FALSE}
+library(ElemStatLearn);data(ozone,package = "ElemStatLearn")
+ozone <- ozone[order(ozone$ozone),]
+head(ozone)
+```
+
+
+## Bagged loess
+
+```{r message=F}
+ll <- matrix(NA,nrow = 10,ncol=155)
+for(i in 1:10){
+  ss <- sample(1:dim(ozone)[1],replace = T)
+  ozone0 <- ozone[ss,];ozone0 <-ozone0[order(ozone0$ozone),]
+  loess0 <- loess(temperature ~ ozone,data=ozone0,span=0.2)
+  ll[i,] <- predict(loess0,newdata=data.frame(ozone=1:155))
+}
+```
+
+## Plot 
+```{r}
+library(ggplot2)
+plot(ozone$ozone,ozone$temperature,pch=19,cex=0.5)
+for(i in 1:10){lines(1:155,ll[i,],col="grey",lwd=2)}
+lines(1:155,apply(ll,2,mean),col="red",lwd=2)
+```
+
+## More bagging in caret
+
+```{r}
+library(caret)
+predictors <- data.frame(ozone=ozone$ozone)
+temperature <- ozone$temperature
+treebag <- bag(predictors,temperature,B=10, 
+               bagControl=bagControl(fit=ctreeBag$fit,predict = ctreeBag$pred,
+                                     aggregate = ctreeBag$aggregate))
+```
+
+## Example of custom bagging(continued)
+```{r}
+plot(ozone$ozone,temperature,col="lightgrey",pch=19)
+points(ozone$ozone,predict(treebag$fits[[1]]$fit,predictors),pch=19,col="red")
+points(ozone$ozone,predict(treebag,predictors),pch=19,col="blue")
+
+```
+
+# Random forests
+
+```{r}
+data("iris");library(ggplot2)
+inTrain <- createDataPartition(y=iris$Species,p=0.7,list=F)
+training <- iris[inTrain,]
+testing <- iris[-inTrain,]
+
+modFit <- train(Species ~.,data=training,method="rf",prox=T)
+modFit
+
+```
+
+## getting a single tree
+
+```{r}
+library(randomForest)
+getTree(modFit$finalModel,k=2)
+```
+
+## Class "centers"
+
+```{r}
+irisP <- classCenter(training[,c(3,4)],training$Species,modFit$finalModel$prox)
+irisP <- as.data.frame(irisP);
+irisP$Species <-rownames(irisP)
+p <- qplot(Petal.Width,Petal.Length,col=Species,data=training)
+p + geom_point(aes(x=Petal.Width,y=Petal.Length,col=Species),size=5,shape=4,
+               data=irisP)
+```
+
+## Predicting new values
+```{r}
+pred <- predict(modFit,testing)
+testing$predRight <- pred==testing$Species
+table(pred,testing$Species)
+
+```
+
+```{r}
+qplot(Petal.Width,Petal.Length,colour=predRight,data = testing,main="newdata Pred")
+```
+# Boosting
+
+```{r}
+library(ISLR);data(Wage);library(ggplot2);library(caret)
+Wage <- subset(Wage,select=-c(logwage))
+inTrain <- createDataPartition(y=Wage$wage,p=0.7,list=F)
+training <- Wage[inTrain,];testing <- Wage[-inTrain,]
+
+```
+
+##Fit the model
+```{r}
+modFit <- train(wage~.,method="gbm",data = training,verbose=F)
+print(modFit)
+```
+
+#Quiz3
+
+# Q1
+
+```{r}
+library(AppliedPredictiveModeling)
+data(segmentationOriginal)
+library(caret)
+```
+
+```{r}
+set.seed(125)
+inTrain <- createDataPartition(segmentationOriginal$Case,p=0.6,list = F)
+training <- segmentationOriginal[inTrain,]
+testing <- segmentationOriginal[-inTrain,]
+modFit <- train(Class~.,method="rpart",data=training)
+```
+
+```{r message=FALSE}
+library(rattle)
+fancyRpartPlot(modFit$finalModel)
+```
+# Q3
+```{r}
+download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/data/olive_data.zip",destfile = "olive_data.zip")
+unzip("olive_data.zip")
+load("olive.rda")
+
+modFit <- train(Area~.,method="rpart",data=olive)
+newdata = as.data.frame(t(colMeans(olive)))
+predict(modFit,newdata = newdata)
+fancyRpartPlot(modFit$finalModel)
+```
+
+#Q4
+
+```{r}
+library(ElemStatLearn)
+data(SAheart)
+set.seed(8484)
+train = sample(1:dim(SAheart)[1],size=dim(SAheart)[1]/2,replace=F)
+trainSA = SAheart[train,]
+testSA = SAheart[-train,]
+missClass = function(values,prediction){sum(((prediction > 0.5)*1) != values)/length(values)}
+
+set.seed(13234)
+modFit <- train(chd~age+alcohol+obesity+tobacco+typea+ldl,method="glm",
+                family="binomial",data=trainSA)
+
+missClass(trainSA$chd,predict(modFit,trainSA))
+missClass(testSA$chd,predict(modFit,testSA))
+```
+
+#Q5
+```{r}
+library(ElemStatLearn)
+library(randomForest)
+data(vowel.train)
+data(vowel.test)
+
+vowel.test$y = factor(vowel.test$y)
+vowel.train$y = factor(vowel.train$y)
+
+set.seed(33833)
+modFit <- randomForest(y~.,data = vowel.train)
+
+importance <-varImp(modFit)
+importance$var <- row.names(importance)
+arrange(importance,desc(Overall))
+```
