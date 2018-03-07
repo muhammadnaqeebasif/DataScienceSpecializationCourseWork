@@ -1,0 +1,94 @@
+---
+title: "Plotly"
+author: "Naqeeb"
+date: "6 March 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Basic Scatterplot
+
+```{r message=FALSE}
+library(plotly)
+plot_ly(mtcars, x=~wt, y=~mpg, mode="markers")
+```
+
+## Scatterplot colours
+
+```{r message=F}
+plot_ly(mtcars,x=~wt,y=~mpg,color = ~as.factor(cyl),size=~hp)
+```
+
+## 3d plot
+
+```{r message=F}
+plot_ly(data=mtcars,x=~wt,y=~mpg,z=~hp,color = ~as.factor(cyl),
+        type = "scatter3d",mode="markers")
+```
+
+## Line Graph
+
+```{r message=FALSE}
+plot_ly(x=time(airmiles),y=airmiles,mode="lines")
+```
+
+## Multi- Line graph
+
+```{r, eval=F}
+library(plotly)
+library(tidyr)
+library(dplyr)
+
+data("EuStockMarkets")
+
+stocks <- as.data.frame(EuStockMarkets) %>%
+  gather(index,price) %>%
+  mutate(time=rep(time(EuStockMarkets),4)) %>%
+  mutate(index=as.factor(index))
+
+plot_ly(stocks,x=~time,y=~price,color=~index,mode="lines")
+```
+
+## Choropleth Maps
+
+```{r message=F}
+library(plotly)
+df <- read.csv("https://raw.githubusercontent.com/plotly/datasets/master/2011_us_ag_exports.csv")
+df$hover <- with(df, paste(state, '<br>', "Beef", beef, "Dairy", dairy, "<br>",
+                           "Fruits", total.fruits, "Veggies", total.veggies,
+                           "<br>", "Wheat", wheat, "Corn", corn))
+# give state boundaries a white border
+l <- list(color = toRGB("white"), width = 2)
+# specify some map projection/options
+g <- list(
+  scope = 'usa',
+  projection = list(type = 'albers usa'),
+  showlakes = TRUE,
+  lakecolor = toRGB('white')
+)
+
+p <- plot_geo(df, locationmode = 'USA-states') %>%
+  add_trace(
+    z = ~total.exports, text = ~hover, locations = ~code,
+    color = ~total.exports, colors = 'Purples'
+  ) %>%
+  colorbar(title = "Millions USD") %>%
+  layout(
+    title = '2011 US Agriculture Exports by State<br>(Hover for breakdown)',
+    geo = g
+  )
+
+# Create a shareable link to your chart
+# Set up API credentials: https://plot.ly/r/getting-started
+p
+```
+
+## GGplotly
+
+```{r}
+
+```
+

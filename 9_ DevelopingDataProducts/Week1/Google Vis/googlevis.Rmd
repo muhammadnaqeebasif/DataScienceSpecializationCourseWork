@@ -1,0 +1,67 @@
+---
+title: "Google Vis"
+author: "Naqeeb"
+date: "6 March 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Google Vis tutorial
+
+## Line chart
+library(googleVis)
+op <- options(gvis.plot.tag = "chart")
+## Add the mean
+CityPopularity$Mean=mean(CityPopularity$Popularity)
+CC <- gvisComboChart(CityPopularity, xvar='City',
+          yvar=c('Mean', 'Popularity'),
+          options=list(seriesType='bars',
+                       width=450, height=300,
+                       title='City Popularity',
+                       series='{0: {type:"line"}}'))
+plot(CC)
+```
+
+## Line chart with two axis
+
+```{r}
+suppressPackageStartupMessages(library(googleVis))
+op <- options(gvis.plot.tag='chart')
+
+df=data.frame(country=c("US", "GB", "BR"), 
+              val1=c(10,13,14), 
+              val2=c(23,12,32))
+
+Line2 <- gvisLineChart(df, "country", c("val1","val2"),
+                       options=list(
+                         series="[{targetAxisIndex: 0},
+                                 {targetAxisIndex:1}]",
+                         vAxes="[{title:'val1'}, {title:'val2'}]"
+                       ))
+
+Line2
+```
+
+## Bar Chart
+```{r}
+suppressPackageStartupMessages(library(googleVis))
+op <- options(gvis.plot.tag='chart')
+
+df=data.frame(country=c("US", "GB", "BR"), 
+              val1=c(10,13,14), 
+              val2=c(23,12,32))
+Bar <- gvisBarChart(df)
+print(Bar,"chart")
+```
+
+```{r message=FALSE}
+op <- options(gvis.plot.tag='chart')
+Motion=gvisMotionChart(Fruits, 
+                       idvar="Fruit", 
+                       timevar="Year")
+print(Motion,"chart")
+```
+
