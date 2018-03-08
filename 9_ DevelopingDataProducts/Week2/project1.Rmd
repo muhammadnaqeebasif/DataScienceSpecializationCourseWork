@@ -1,0 +1,28 @@
+---
+title: "Developing Data Products Project 1"
+author: "Naqeeb Asif"
+date: "7 March 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Synopsis
+
+In this project the tallest building of the world namely 'Burj Khalifa' is located 
+on the map using leaflet.
+
+## Burj Khalifa on the map
+In this section map is drawn and 'Burj Khalifa' is pointed on the map using leaflet
+library.
+
+```{r message=FALSE}
+library(leaflet)
+
+my_map <- leaflet() %>%
+  addTiles() %>%
+  addMarkers(lat = 25.197525,lng = 55.274288,popup = "Burj Khalifa")
+my_map
+```

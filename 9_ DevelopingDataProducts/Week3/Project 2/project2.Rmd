@@ -1,0 +1,25 @@
+---
+title: "Week 3 Assignment"
+author: "Naqeeb Asif"
+date: "8 March 2018"
+output: ioslides_presentation
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+## Motor Trend Car Road Tests
+
+```{r message=FALSE}
+library(ggplot2)
+library(plotly)
+
+mtcars$cyl <- factor(mtcars$cyl)
+
+g <- ggplot(data=mtcars,aes(x=wt,y=mpg,colour=cyl)) +geom_point() + facet_grid(.~cyl)
+g <- g + xlab("Weight (1000 lbs)") + ylab("Miles Per Gallon") 
+ggplotly(g)
+```
+
+## Thanks

@@ -1,0 +1,22 @@
+---
+title: "Developing Data Products Project"
+author: "Naqeeb Asif"
+date: "8 March 2018"
+output: ioslides_presentation
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+
+## Exploratory Analysis of mtcars dataset
+
+This presentation is the part of [Developing Data Products](https://www.coursera.org/learn/data-products) 
+project. The purpose of the presentation is to explain the working of the created in the 
+project. The links to the application, source code and documentation are given
+below:
+
+- [Application](https://naqeebasif.shinyapps.io/DDPProject/)
+- [Documentation]()
+- [Source Code]()

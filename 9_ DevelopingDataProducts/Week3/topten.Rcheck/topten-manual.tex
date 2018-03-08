@@ -1,0 +1,94 @@
+\nonstopmode{}
+\documentclass[a4paper]{book}
+\usepackage[times,inconsolata,hyper]{Rd}
+\usepackage{makeidx}
+\usepackage[utf8,latin1]{inputenc}
+% \usepackage{graphicx} % @USE GRAPHICX@
+\makeindex{}
+\begin{document}
+\chapter*{}
+\begin{center}
+{\textbf{\huge Package `topten'}}
+\par\bigskip{\large \today}
+\end{center}
+\begin{description}
+\raggedright{}
+\item[Type]\AsIs{Package}
+\item[Title]\AsIs{Building a PredictionModel from Top 10 Features}
+\item[Version]\AsIs{1.0}
+\item[Date]\AsIs{2018-03-08}
+\item[Author]\AsIs{Naqeeb Asif}
+\item[Maintainer]\AsIs{Naqeeb Asif }\email{naqeebasif@gmail.com}\AsIs{}
+\item[Description]\AsIs{Functions for building and predicting from models from selecting the top 10 predictors in a dataset.}
+\item[License]\AsIs{GPL-3}
+\item[RoxygenNote]\AsIs{6.0.1}
+\item[NeedsCompilation]\AsIs{no}
+\end{description}
+\Rdcontents{\R{} topics documented:}
+\inputencoding{utf8}
+\HeaderA{predict10}{Prediction from the top 10 features}{predict10}
+%
+\begin{Description}\relax
+This function takes a set of coefficients produced by the \code{topten}
+function and makes a prediction for each of the values provided in the input
+'X' matrix
+\end{Description}
+%
+\begin{Usage}
+\begin{verbatim}
+predict10(X, b)
+\end{verbatim}
+\end{Usage}
+%
+\begin{Arguments}
+\begin{ldescription}
+\item[\code{X}] a n x 10 matrix containing n new observations.
+
+\item[\code{b}] a vector of coefficients obtained from the \code{topten} function
+\end{ldescription}
+\end{Arguments}
+%
+\begin{Value}
+a numeric vector containing the predicted values
+\end{Value}
+\inputencoding{utf8}
+\HeaderA{topten}{Building a Model with Top Ten Features}{topten}
+%
+\begin{Description}\relax
+This function develops a prediction algorithm based on the top 10 features
+in 'x' that are most predictive of 'y'
+\end{Description}
+%
+\begin{Usage}
+\begin{verbatim}
+topten(x, y)
+\end{verbatim}
+\end{Usage}
+%
+\begin{Arguments}
+\begin{ldescription}
+\item[\code{x}] a n x p matrix of n observatios and p predictors
+
+\item[\code{y}] a vector of length n representing the response
+\end{ldescription}
+\end{Arguments}
+%
+\begin{Details}\relax
+This function runs a univariate regression of y on each predictor in x and
+calcualtes a p-value indicating the significance of the association. The
+final set of predictors is taken from the 10 smallest p-values
+\end{Details}
+%
+\begin{Value}
+a vector of coefficients from the final fitted model with top 10 features
+\end{Value}
+%
+\begin{Author}\relax
+Naqeeb Asif
+\end{Author}
+%
+\begin{SeeAlso}\relax
+\code{lm}
+\end{SeeAlso}
+\printindex{}
+\end{document}

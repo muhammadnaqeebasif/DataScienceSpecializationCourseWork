@@ -1,0 +1,12 @@
+name: DDPProject
+title: DDPProject
+username:
+account: naqeebasif
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 296222
+bundleId: 1260192
+url: https://naqeebasif.shinyapps.io/DDPProject/
+when: 1520551038.15426
+asMultiple: FALSE
+asStatic: FALSE
