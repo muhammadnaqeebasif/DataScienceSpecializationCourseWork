@@ -10,13 +10,54 @@ knitr::opts_chunk$set(echo = FALSE)
 ```
 
 
-## Exploratory Analysis of mtcars dataset
+## Introduction
 
 This presentation is the part of [Developing Data Products](https://www.coursera.org/learn/data-products) 
-project. The purpose of the presentation is to explain the working of the created in the 
-project. The links to the application, source code and documentation are given
-below:
+project. The purpose of the presentation is to explain the working of the application created in the 
+project. The links to the application, source code and documentation are given below:
 
-- [Application](https://naqeebasif.shinyapps.io/DDPProject/)
+- [Exploratory Analysis on 'mtcars' dataset](https://naqeebasif.shinyapps.io/DDPProject/)
 - [Documentation]()
-- [Source Code]()
+- [Source Code](https://github.com/naqeebasif/DataScienceSpecializationCourseWork/tree/master/9_%20DevelopingDataProducts/Week4/Project3/DDPProject)
+
+## Application Functionalities
+
+The purpose of this application is to perform some of the exploratory analysis 
+techniques on the [mtcars dataset](https://stat.ethz.ch/R-manual/R-devel/library/datasets/html/mtcars.html)
+which comes with 'R'. Following are the functionalities of the application:
+
+1. Printing summary and structure of the data
+2. If one feature is chosen then:
+    - Plotting Histogram if the feature is numeric.
+    - Plotting BarPlot if the feature is categorical.
+3. If two features are chosen then plotting point plot as well as linear model.
+4. Applying colours and the the facet grid by the chosen categorical feature.
+
+## How the Application works
+The application can be divided into two parts: 
+
+1. Summary Part  
+2. Graph Part
+
+### 1. Summary Part
+The checkbox is used to decide whether to display summary or structure of the 
+data. Following R code is used to return either summary or structure of the data.
+```{r eval=FALSE,echo=TRUE}
+if(input$checkSumm){h3("Summary")}
+  else{h3("Structure")}
+```
+----
+### 2. Graph Part
+GGplot is used to display the graph. Basic ggplot object is created first and it
+is then modified according to the choices chosen by the user. For one of the choices
+the code similar to the following will be run:
+```{r eval=TRUE}
+mtcars$cyl <- factor(mtcars$cyl)
+library(ggplot2)
+```
+
+```{r echo=TRUE,eval=TRUE,fig.height=3}
+ggplot(data=mtcars,aes(x=hp,y=mpg,colour=cyl)) +geom_point() +
+  facet_grid(.~cyl)+geom_smooth(method="lm",se=F)
+```
+  
