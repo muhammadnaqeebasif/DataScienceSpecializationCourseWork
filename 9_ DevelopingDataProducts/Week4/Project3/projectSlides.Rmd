@@ -30,7 +30,7 @@ which comes with 'R'. Following are the functionalities of the application:
 2. If one feature is chosen then:
     - Plotting Histogram if the feature is numeric.
     - Plotting BarPlot if the feature is categorical.
-3. If two features are chosen then plotting point plot as well as linear model.
+3. If two features are chosen then plotting scatter plot as well as linear model.
 4. Applying colours and the the facet grid by the chosen categorical feature.
 
 ## How the Application works

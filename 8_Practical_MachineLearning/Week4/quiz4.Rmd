@@ -1,0 +1,177 @@
+---
+title: "Quiz4"
+author: "Naqeeb Asif"
+date: "10 March 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Q1
+
+```{r message=F}
+library(ElemStatLearn)
+
+data(vowel.train)
+
+data(vowel.test)
+```
+
+```{r message=FALSE}
+vowel.train$y <- as.factor(vowel.train$y)
+vowel.test$y <- as.factor(vowel.test$y)
+```
+
+```{r message=F}
+library(caret)
+set.seed(33833)
+model_rf <- train(y ~ ., method="rf",data = vowel.train,verbose=F)
+model_gbm <- train(y~.,method="gbm",data=vowel.train,verbose=F)
+
+pred_rf <- predict(model_rf,vowel.test)
+pred_gbm <- predict(model_gbm,vowel.test)
+```
+
+```{r message=F}
+confusionMatrix(pred_gbm,vowel.test$y)$overall[1]
+
+```
+```{r message=F}
+confusionMatrix(pred_rf,vowel.test$y)$overall[1]
+
+```
+```{r message=F}
+confusionMatrix(pred_rf, pred_gbm)$overall[1]
+```
+
+# Q2
+
+```{r message =F}
+library(caret)
+
+library(gbm)
+
+set.seed(3433)
+
+library(AppliedPredictiveModeling)
+
+data(AlzheimerDisease)
+
+adData = data.frame(diagnosis,predictors)
+
+inTrain = createDataPartition(adData$diagnosis, p = 3/4)[[1]]
+
+training = adData[ inTrain,]
+
+testing = adData[-inTrain,]
+```
+
+```{r message=F}
+library(rlist)
+set.seed(62433)
+
+```
+
+```{r message=F}
+model_rf <- train(diagnosis~.,data=training,method="rf",verbose=F)
+model_gbm <- train(diagnosis~.,data=training,method="gbm",verbose=F)
+model_lda <- train(diagnosis~.,data=training,method="lda",verbose=F)
+
+```
+```{r message=F}
+predict_rf <- predict(model_rf,testing)
+predict_gbm <- predict(model_gbm,testing)
+predict_lda <- predict(model_lda,testing)
+
+
+```
+
+```{r message=F}
+accuracy <- data.frame(rf=confusionMatrix(predict_rf,testing$diagnosis)$overall[1],
+                       gbm=confusionMatrix(predict_gbm,testing$diagnosis)$overall[1],
+                       lda=confusionMatrix(predict_lda,testing$diagnosis)$overall[1])
+accuracy
+```
+
+```{r message=F}
+pred_comb <- data.frame(predict_gbm,predict_lda,predict_rf,diagnosis=testing$diagnosis)
+comb_model <- train(diagnosis~.,data=pred_comb,method="rf")
+```
+
+```{r message=F}
+pred_stacked <- predict(comb_model,pred_comb)
+stacked=confusionMatrix(pred_stacked,testing$diagnosis)$overall[1]
+stacked
+```
+
+# Q3
+
+```{r message=F}
+set.seed(3523)
+
+library(AppliedPredictiveModeling)
+
+data(concrete)
+
+inTrain = createDataPartition(concrete$CompressiveStrength, p = 3/4)[[1]]
+
+training = concrete[ inTrain,]
+
+testing = concrete[-inTrain,]
+```
+
+```{r message=F}
+set.seed(233)
+library(caret)
+model <- train(CompressiveStrength~.,data=training,method="lasso")
+library(elasticnet)
+plot.enet(model$finalModel, xvar = "penalty", use.color = TRUE)
+```
+
+# Q4
+```{r message=F}
+library(lubridate) # For year() function below
+download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/gaData.csv",
+              destfile = "gaData.csv")
+dat = read.csv("./gaData.csv")
+
+training = dat[year(dat$date) < 2012,]
+
+testing = dat[(year(dat$date)) > 2011,]
+
+tstrain = ts(training$visitsTumblr)
+```
+
+```{r message=F}
+modBats <- bats(tstrain)
+forecastObj <- forecast(modBats, level=95, h=nrow(testing))
+betweenVal <- sum(testing$visitsTumblr > forecastObj$lower &  testing$visitsTumblr < forecastObj$upper)
+betweenVal / nrow(testing) * 100
+```
+
+# Q5
+
+```{r message=F}
+set.seed(3523)
+
+library(AppliedPredictiveModeling)
+
+data(concrete)
+
+inTrain = createDataPartition(concrete$CompressiveStrength, p = 3/4)[[1]]
+
+training = concrete[ inTrain,]
+
+testing <- concrete[-inTrain,]
+```
+
+```{r message=F}
+set.seed(325)
+
+library(e1071)
+model <-svm(CompressiveStrength~.,data=training)
+pred <- predict(model,testing)
+RMSE(pred,testing$CompressiveStrength)
+```

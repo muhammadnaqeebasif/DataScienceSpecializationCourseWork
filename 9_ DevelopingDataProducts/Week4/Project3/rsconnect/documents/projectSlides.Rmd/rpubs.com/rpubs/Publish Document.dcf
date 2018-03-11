@@ -1,0 +1,10 @@
+name: Publish Document
+title:
+username:
+account: rpubs
+server: rpubs.com
+hostUrl: rpubs.com
+appId: https://api.rpubs.com/api/v1/document/367992/16829599434f4eec878a3e4601fd688a
+bundleId: https://api.rpubs.com/api/v1/document/367992/16829599434f4eec878a3e4601fd688a
+url: http://rpubs.com/naqeebasif/367992
+when: 1520618642.68035

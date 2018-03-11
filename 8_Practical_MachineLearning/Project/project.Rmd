@@ -1,0 +1,192 @@
+---
+title: "Coursera Practical Machine Learning Project"
+author: "Naqeeb Asif"
+date: "10 March 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Synopsis
+In this experiment [Weight Lifting Exercise Dataset](http://web.archive.org/web/20161224072740/http:/groupware.les.inf.puc-rio.br/har)
+is explored. It is first processed then three prediction algorithms namely "Decision Tree",
+"Linear Discriminant Analysis" and "Random Forest" are trained on the dataset.
+After training it is found out that "Random Forest" outperforms the others.After 
+the training the final model is used to predict the unknown data.
+
+# Loading the data
+In this secton the data is loaded.
+
+```{r message=F,results='hide'}
+if(!file.exists("./data")){
+  dir.create("./data")
+}
+download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv",destfile = "./data/pml-training.csv")
+download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv",destfile = "./data/pml-testing.csv")
+training_orig <- read.csv("./data/pml-training.csv", na.strings = c("NA", ""))
+testing_orig <- read.csv("./data/pml-testing.csv",na.strings = c("NA", ""))
+```
+
+# Data Processing
+In this section data is processed first so that it can be used by the prediction
+algorithms.
+
+## Data Cleanining
+In this section the data is cleaned. First 7 columns of the data are removed as
+they do not seem to play major role in predicting the outcome.
+
+```{r message=F}
+training <- training_orig[,-c(1:7)]
+testing <- testing_orig[,-c(1:7)]
+
+```
+
+
+Following code will remove those columns which contain NA values as they are
+going to impact less on the prediction.
+
+```{r message=F}
+col_rem <- integer()
+for(i in 1:ncol(training)){
+  total_NAs <- sum(is.na(training[,i]))
+  if(total_NAs!=0){
+    col_rem <- c(col_rem,i)
+  }
+}
+training <- training[,-col_rem]
+testing<- testing[,-col_rem]
+```
+
+After cleaning the training set it has ````r dim(training)[1]```` observations
+and ````r dim(training)[2]```` features with ```classe``` as its ````r grep("classe",names(training))`rd```
+feature. The observations of testing set remains the same i.e. ````r dim(testing)[1]````
+but just like the training set the features of the training set become ````r dim(training)[2]````
+with ```problem_id``` as its ````r grep("problem_id",names(testing))`rd``` feature 
+(testing set does not contain the "classe" feature insted it contains "problem_id").
+
+
+## Data Splitting
+In this section splitting of the data is performed. As the testing set does not 
+contain the outcome feature so we'll split the training set into two parts. 70% of 
+the data is considered as training data while other 30% data is considered as 
+cross validation data.
+
+```{r message=F}
+library(caret)
+set.seed(1234)
+inTrain <- createDataPartition(training$classe,p=0.7,list = FALSE)
+trainData <- training[inTrain,]
+validationData <- training[-inTrain,]
+```
+
+# Prediction Model
+In this section the prediction model will be fitted on the data and depending upon 
+the accuracy on the validation data the best model will be chosen . Following are 
+the algorithms used in this experiment:
+1. Decision Trees
+2. Random Forest
+3. Logistic Regression
+
+## Creating model {#createModel}
+This section contains a function which takes algorithm name , training set and 
+testing set as its arguements and returns a list which contains the final model and 
+confusion matrix for the testing set which will also help in reducing the code.
+
+```{r message=FALSE}
+createModel <- function(name,trainingData,testingData, ...){
+  library(caret)
+  result <- list()
+  control <- trainControl(method = "cv", number = 5)
+  result$model <- train(classe ~ .,data=trainingData,method = name, ...)
+  pred <- predict(result$model,testingData)
+  result$cm <- confusionMatrix(pred,testingData$classe)
+  result
+}
+
+```
+
+## Decision Trees
+In this section, 'the classification'Decision trees' algorithm is used to fit the training data and the
+accuracy on validation data is caclculated from the confusion matrix which was 
+found as a result from the function [createModel](#createModel) .
+
+```{r message=FALSE}
+library(caret)
+library(rattle)
+set.seed(1234)
+
+dTreeModel <- createModel("rpart",trainData,validationData)
+fancyRpartPlot(dTreeModel$model$finalModel,main="Decision Tree Model")
+
+```
+
+The cross-validation accuracy of the model is ````r round(dTreeModel$cm$overall[1]*100,3)`%```
+
+## Linear Discriminant Analysis
+In this section,'Linear Discriminant Analysis' algorithm is used to fit the training data and the
+accuracy on validation data is caclculated from the confusion matrix which was 
+found as a result from the function [createModel](#createModel)
+
+```{r message=FALSE}
+library(caret)
+set.seed(1234)
+
+ldaModel <- createModel("lda",trainData,validationData)
+```
+The cross-validation accuracy of the model is ````r round(ldaModel$cm$overall[1]*100,3)`%```
+
+## Random Forest 
+In this section,'Random Forest' algorithm is used to fit the training data and the
+accuracy on validation data is caclculated from the confusion matrix which was 
+found as a result from the function [createModel](#createModel)
+
+```{r message=FALSE,cache=TRUE}
+library(caret)
+library(doParallel)
+registerDoParallel(cores = 4)
+set.seed(1234)
+
+rfModel <- createModel("rf",trainData,validationData)
+plot(rfModel$model$finalModel,main = "Random Forest")
+```
+  
+The cross-validation accuracy of the model is ````r round(rfModel$cm$overall[1]*100,3)`%```
+
+## Best Classifier
+Lets see which classifier is the best depending upon the accuracy.
+
+```{r message=F}
+library(ggplot2)
+accuracy_df <- data.frame(Model=factor(c("Decision Tree","Linear Discriminant Analysis",
+                                         "Ranom Forest")),
+                                       accuracies=c(round(dTreeModel$cm$overall[1]*100,2),
+                                                    round(ldaModel$cm$overall[1]*100,2),
+                                                    round(rfModel$cm$overall[1]*100,2)))
+
+
+ggplot(data=accuracy_df,aes(x=Model,y=accuracies,fill=Model)) + geom_bar(stat = "identity")+
+  geom_text(aes(label=accuracies), vjust=1.6, color="white", size=8)+
+  theme_minimal()+labs(title="Accuracies of Models") +ylab("Accuracy (%)")+
+  theme(plot.title = element_text(hjust = 0.5))
+
+```
+
+As it can be seen from the plot that random forest gives the best accuracy out of
+all the models so we'll choose this model to predict the outcome of unknown data.
+
+#Prediction of testing dataset
+
+In this section pridction of testing data is made using random forest model.
+
+```{r message=FALSE}
+bestModel <- rfModel$model
+predict(bestModel,testing)
+```
+
+#Conclusion
+To conclude we can say that out of all the alogrithms used in this experiment 
+random forest performs the best. But this performance comes with a price which 
+is the training time of random forest is so much longer than that of other 
+algorithms used in the experiment.
