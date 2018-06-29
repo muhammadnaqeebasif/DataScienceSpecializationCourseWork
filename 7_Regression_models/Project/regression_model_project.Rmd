@@ -7,7 +7,7 @@ output:
   html_document: default
 ---
 
-#Synopsis
+# Synopsis
 
 In this experiment mtcars data is explored. First the relationship between miles
 per gallon and transmission type is examined. It is found out that the transmission type 
