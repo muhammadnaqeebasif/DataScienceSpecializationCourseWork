@@ -178,7 +178,7 @@ all the models so we'll choose this model to predict the outcome of unknown data
 
 # Prediction of testing dataset
 
-In this section pridction of testing data is made using random forest model.
+In this section prediction of testing data is made using random forest model.
 
 ```{r message=FALSE}
 bestModel <- rfModel$model
