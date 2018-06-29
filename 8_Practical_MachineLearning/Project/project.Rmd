@@ -176,7 +176,7 @@ ggplot(data=accuracy_df,aes(x=Model,y=accuracies,fill=Model)) + geom_bar(stat = 
 As it can be seen from the plot that random forest gives the best accuracy out of
 all the models so we'll choose this model to predict the outcome of unknown data.
 
-#Prediction of testing dataset
+# Prediction of testing dataset
 
 In this section pridction of testing data is made using random forest model.
 
@@ -185,7 +185,7 @@ bestModel <- rfModel$model
 predict(bestModel,testing)
 ```
 
-#Conclusion
+# Conclusion
 To conclude we can say that out of all the alogrithms used in this experiment 
 random forest performs the best. But this performance comes with a price which 
 is the training time of random forest is so much longer than that of other 
