@@ -1,0 +1,251 @@
+---
+title: "Data Science Specialization Capstone Project - Week 3"
+author: "Naqeeb Asif"
+date: "4 December 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Synapsis
+This document describes the data acquisition, basic summaries, cleaning, pre-processing  and basic exploratory analysis done in correspondence to the requirements in Data Science Capstone Projects.
+
+## Acquisition of data and basic Summary
+The data is downloaded from the [link](https://d396qusza40orc.cloudfront.net/dsscapstone/dataset/Coursera-SwiftKey.zip) provided in the instructions of the project. Following three US files are loaded from the data provided:
+
+* en_US.blogs.txt
+* en_US.twitter.txt
+* en_US.news.txt
+```{r loadLibraries,echo=FALSE,warning=FALSE,message=FALSE}
+```
+
+```{r acquisition,echo=FALSE,results=FALSE,cache=TRUE,message=FALSE,warning=FALSE}
+```
+
+The basic summary of the data is as follows:
+
+```{r basic_summary, echo=FALSE}
+```
+
+## Data Preprocessing
+Following pre-processing is done on the data:
+
+* Data is sampled as data is too large. Only 3 % of the data is taken from each 
+data file.
+* Corpus is generated
+* Following transformations are performed:
+
+    1. NonASCII characters are removed.
+    2. Profanity words are removed.
+    3. StopWords are removed.
+    4. URLs are removed.
+    5. Punctuations are removed.
+    6. Numbers are removed.
+    7. Words are uncapitalized.
+    8. Spaces are removed.
+  
+* Creating TermDocumentMatrix.
+    1. 1-Gram
+    2. 2-Gram
+    3. 3-Gram
+
+```{r generating_corpus, echo=FALSE, cache=TRUE}
+```
+
+
+```{r clean_corpus,echo=FALSE,cache=TRUE}
+```
+
+```{r TermDocumentMatrix,echo=FALSE,cache=TRUE}
+```
+
+## Explratory Analysis
+In this section barplots and wordclouds are plotted for different d-grams model.
+
+### 1-Gram
+```{r one_d_gram_bar_plot, echo=FALSE}
+```
+
+```{r one_d_gram_word_cloud,echo=FALSE,warning=FALSE}
+```
+
+### 2-Gram
+```{r two_d_gram_bar_plot, echo=FALSE}
+```
+
+```{r two_d_gram_word_cloud,echo=FALSE,warning=FALSE}
+```
+
+### 3-Gram
+```{r three_d_gram_bar_plot, echo=FALSE}
+```
+
+```{r three_d_gram_word_cloud,echo=FALSE,warning=FALSE}
+```
+
+### 4-Gram
+```{r four_d_gram_bar_plot, echo=FALSE}
+```
+
+```{r four_d_gram_word_cloud,echo=FALSE,warning=FALSE}
+```
+## Future Plan
+After the exploratory analysis, following are the further steps:
+
+* Create predictive model.
+* Create shiny application to make word prediction depending on the user input.
+
+## Appendices
+### 1. Appendix - Code for Loading Libraries
+```{r loadLibraries,eval=FALSE}
+library(NLP)
+library(openNLP)
+library(RWeka)
+library(tidyverse)
+library(knitr)
+library(tm)
+library(wordcloud)
+```
+
+### 2. Appendix - Code for Acquisition of Data
+```{r acquisition,eval=FALSE}
+ifelse(dir.exists("../data/"),FALSE,dir.create("../data"))
+ifelse(!file.exists("../data/Coursera-SwiftKey.zip"),download.file("https://d396qusza40orc.cloudfront.net/dsscapstone/dataset/Coursera-SwiftKey.zip","../data/Coursera-SwiftKey.zip"),FALSE)
+ifelse(dir.exists("../data/final/"),FALSE,unzip("../data/Coursera-SwiftKey.zip",exdir = file.path("../data/"),overwrite = FALSE))
+data_path = list(US_Blog = "../data/final/en_US/en_US.blogs.txt",
+                 US_Twitter = "../data/final/en_US/en_US.twitter.txt",
+                 US_News = "../data/final/en_US/en_US.news.txt")
+data = map(data_path,readLines)
+```
+
+### 3. Appendix - Basic Summary of Data 
+```{r basic_summary, eval=FALSE}
+basic_summary <- map_dfr(data,
+                          function(x){
+                            list(lines = length(x),
+                                 chars = sum(nchar(x)), 
+                                 chars_longest_line = max(nchar(x)))
+                          })
+size = map_dbl(data_path, function(x){ 
+                        file_info <-file.info(x)
+                        file_info$size/(1024 * 1024)
+                        })
+basic_summary$size_mb <- size
+basic_summary <- as.data.frame(basic_summary)
+row.names(basic_summary) <- names(data_path)
+basic_summary %>% kable()
+```
+
+### 4. Appedix - Code for Corpus Generation
+```{r generating_corpus, eval=FALSE}
+# combined data
+#data = c(data$US_Blog,data$US_Twitter,data$US_News)
+
+# Clean corpus
+clean_corpus <- function(corpus){
+  profanity <- readLines("https://www.cs.cmu.edu/~biglou/resources/bad-words.txt")
+  sub_transformer <- content_transformer(function (x , pattern ,replacement=""){
+                                            gsub(pattern,replacement, x)
+                                          }
+                                         )
+  # words are uncapitalized
+  corpus <- tm_map(corpus,content_transformer(tolower))
+  
+  # removeNonASCII
+  corpus <- tm_map(corpus,content_transformer(function(x){
+                                                iconv(x, "latin1", "ASCII", sub="")
+                                                }
+                                              )
+                   )
+  
+  # remove profanity words
+  corpus <- tm_map(corpus,removeWords,profanity)
+  
+  # remove stop words
+  orpus <- tm_map(corpus, removeWords, stopwords("english"))
+  
+  # remove URLS
+  corpus <- tm_map(corpus,sub_transformer,"http[[:alnum:][:punct:]]*")
+  
+  # removing punctuations
+  corpus <- tm_map(corpus,sub_transformer,"[[:punct:]]*")
+  
+  # removing the digits
+  corpus <- tm_map(corpus,sub_transformer,"[[:digit:]]*")
+  
+  # spaces are removed
+  corpus <- tm_map(corpus,sub_transformer,"\\s+"," ")
+  
+  corpus
+}
+
+create_ngram <- function(corpus, dgram=1){
+                    gram <- function(y) NGramTokenizer(y, Weka_control(min = dgram,
+                                                                       max = dgram))
+                    dtm <- TermDocumentMatrix(corpus,control = list(tokenize = gram))
+                    tidytext::tidy(dtm) %>% dplyr::group_by(term) %>% 
+                      summarize(freq=sum(count)) %>% dplyr::arrange(desc(freq))
+}
+
+create_tdm <- function(data,dgram=1){
+                corpus <- VCorpus(VectorSource(data))
+                corpus <- clean_corpus(corpus)
+                tdm <- create_ngram(corpus,dgram = dgram)
+                tdm
+              }
+
+quiz_question <- function(my_regex,dgram=4){
+                    sample <- data[grepl(my_regex,data)]
+                    tdm <- create_tdm(sample,dgram)
+                    tdm[grepl(paste("^",my_regex,sep = ""),tdm$term),]       
+}
+```
+
+
+### 6. Q1
+```{r TermDocumentMatrix,eval=FALSE}
+quiz_question("[Aa] [Cc]ase [Oo]f ")
+```
+
+### 7. Q2
+```{r one_d_gram_bar_plot, eval=FALSE}
+quiz_question("[Ww]ould [Mm]ean [Tt]he ")
+```
+
+### 8. Q3
+```{r one_d_gram_word_cloud,eval=FALSE}
+quiz_question("[Mm]ake [Mm]e [Tt]he ")
+```
+
+### 8. Q4
+```{r one_d_gram_word_cloud,eval=FALSE}
+quiz_question("[Ss]truggling")
+```
+
+### Q5
+```{r one_d_gram_word_cloud,eval=FALSE}
+quiz_question("[Dd]ate at the")
+```
+
+### Q6
+```{r}
+quiz_question("be on my")
+```
+### Q7
+```{r}
+quiz_question("in quite some")
+```
+### Q8
+```{r}
+quiz_question("with his little")
+```
+### Q9
+```{r}
+quiz_question("[Dd]uring [Tt]he",3)
+```
+### Q10
+```{r}
+quiz_question("[Mm]ust [Bb]e")
+```
