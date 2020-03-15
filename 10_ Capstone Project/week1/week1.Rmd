@@ -1,0 +1,82 @@
+---
+title: "Week1"
+author: "Naqeeb Asif"
+date: "4 December 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+##Loading the libraries
+```{r}
+library(NLP)
+library(openNLP)
+library(RWeka)
+library(purrr)
+```
+
+## Downloading the data
+```{r results=FALSE}
+ifelse(dir.exists("../data/"),FALSE,dir.create("../data"))
+ifelse(!file.exists("../data/Coursera-SwiftKey.zip"),download.file("https://d396qusza40orc.cloudfront.net/dsscapstone/dataset/Coursera-SwiftKey.zip","../data/Coursera-SwiftKey.zip"),FALSE)
+ifelse(dir.exists("../data/final/"),FALSE,unzip("../data/Coursera-SwiftKey.zip",exdir = file.path("../data/"),overwrite = FALSE))
+```
+
+## Reading the files
+```{r message=FALSE, warning=FALSE}
+blog <- readLines("../data/final/en_US/en_US.blogs.txt")
+twitter <- readLines("../data/final/en_US/en_US.twitter.txt")
+news <- readLines("../data/final/en_US/en_US.news.txt")
+```
+
+##Q1
+The en_US.blogs.txt file how many megabytes?
+
+### Answer
+```{r}
+file_info = file.info("../data/final/en_US/en_US.blogs.txt")
+file_info$size/(1024 * 1024)
+```
+
+##Q2
+The en_US.twitter.txt has how many lines of text?
+
+### Answer
+```{r}
+length(twitter)
+```
+
+## Q3
+What is the length of the longest line seen in any of the three en_US data sets?
+
+```{r}
+map_dbl(list(blog = blog,twitter = twitter, news = news) ,function(x){summary(nchar(x))[['Max.']]})
+```
+
+##Q4
+In the en_US twitter data set, if you divide the number of lines where the word “love” (all lowercase) occurs by the number of lines the word “hate” (all lowercase) occurs, about what do you get?
+
+### Answer
+```{r}
+love <- length(grep("love",twitter))
+hate <- length(grep("hate",twitter))
+love/hate
+```
+
+## Q5
+The one tweet in the en_US twitter data set that matches the word “biostats” says what?
+
+### Answer
+```{r}
+grep("biostats",twitter,value = T)
+```
+
+## Q6
+
+### Answer
+```{r}
+length(grep("A computer once beat me at chess, but it was no match for me at kickboxing", twitter))
+
+```
