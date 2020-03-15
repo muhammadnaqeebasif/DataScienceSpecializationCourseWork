@@ -1,0 +1,132 @@
+---
+title: "keras_nlp_model"
+author: "Naqeeb Asif"
+date: "20 December 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Importing packages
+
+```{r message=FALSE,warning=FALSE}
+suppressMessages(library(keras))
+suppressMessages(library(tidyverse))
+```
+
+## Reading the data
+
+```{r message=FALSE,warning=FALSE}
+x_y_data <- read_csv("x_y_data.csv",
+                     col_types = list(
+                                     x1 = col_integer(),
+                                     x2 = col_integer(),
+                                     x3 = col_integer(),
+                                     x4 = col_integer(),
+                                     y = col_integer()
+                                    )
+                       )
+```
+
+## Filtering the data
+
+```{r message=FALSE,warning=FALSE}
+ys <- x_y_data %>% group_by(y) %>% summarise(n=n()) %>% 
+        filter(n>100) %>% arrange(desc(y)) 
+
+x_y_data_filtered <- x_y_data %>% filter(y %in% ys$y)
+```
+
+```{r echo=FALSE}
+vocab_size <- 109914 + 1
+vocab_y <- max(ys$y) + 1
+total_size <- dim(x_y_data_filtered)[[1]]
+```
+
+## Creating the Model
+```{r message=FALSE,warning=FALSE}
+for(i in 1:100){
+  file_path <- paste("Keras_models/model_",i,"_epochs",sep = "")
+  
+  if(!file.exists(paste(file_path,".json",sep=""))){
+    break
+  }
+}
+
+i <- i -1
+if(i == 0){
+  model <- keras_model_sequential()
+  model <- model %>%
+              layer_embedding(vocab_size,50,input_length = 4) %>%
+              layer_lstm(512,return_sequences = TRUE) %>%
+              layer_lstm(512) %>%
+              layer_dense(256,activation = 'relu') %>%
+              layer_dense(128,activation = 'relu') %>%
+              layer_dense(vocab_y,activation = "softmax")
+  
+  print("Model Created.")
+}else{
+  file_path <- paste("Keras_models/model_",i,"_epochs",sep = "")
+  json_file <- paste(file_path,".json",sep="")
+  h5_file <- paste(file_path,".h5",sep="")
+  
+  model <- model_from_json(read_lines(json_file))
+  load_model_weights_hdf5(model,h5_file)
+  print("Model Loaded.")
+}
+
+summary(model)
+```
+
+```{r}
+model %>% compile(loss='categorical_crossentropy', 
+                  optimizer='adam', metrics=c('accuracy'))
+
+```
+
+## Creating generators to fit
+```{r}
+data_generator <- function(batch_size){
+    total_size <- dim(x_y_data_filtered)[[1]]
+    start <- 0
+    end <- ifelse((start + batch_size) <= total_size, (start + batch_size),total_size)
+
+    function(){
+        data <- x_y_data_filtered[start:end,]
+        m <- as.matrix(data)
+        rm(data)
+        colnames(m) <- NULL
+        X <- m[,1:4]
+        y <- m[,5]
+        rm(m)
+        y_train <- to_categorical(y,num_classes = vocab_y)
+        
+        start <<- ifelse(end < total_size, end, 0)
+        end <<- ifelse((start + batch_size) <= total_size, (start + batch_size),total_size)
+        
+        invisible(gc())
+        list(X,y_train)
+        }
+    }
+```
+
+## Training the Models
+```{r}
+i <- i +1
+batch_size <- 1024
+steps <- ceiling(total_size/batch_size)
+model %>% fit_generator(data_generator(1024),
+                        steps_per_epoch =steps,epochs = 1)
+
+file_path <- paste("Keras_models/model_",i,"_epochs",sep = "")
+
+json_file <- paste(file_path,".json",sep="")
+h5_file <- paste(file_path,".h5",sep="")
+
+model_to_json(model) %>% write_lines(json_file)
+save_model_weights_hdf5(model,h5_file)
+print(paste(file_path,"written."))
+gc()
+```

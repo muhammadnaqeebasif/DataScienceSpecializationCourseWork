@@ -1,0 +1,252 @@
+---
+title: "Keras NLP Modelling Prep-processing"
+author: "Naqeeb Asif"
+date: "18 December 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Synapsis
+In this document deep learning model is generated for language modelling using keras library.
+
+## Loading the libraries
+
+```{r warning=FALSE, message=FALSE}
+
+suppressMessages(library(keras))
+suppressMessages(library(purrr))
+suppressMessages(library(tidyverse))
+suppressMessages(library(tidytext))
+suppressMessages(library(parallel))
+suppressMessages(library(pbapply))
+suppressMessages(library(furrr))
+suppressMessages(library(knitr))
+library(reticulate)
+options(warn=-1)
+
+# Calculate the number of cores
+no_cores <- detectCores() - 1
+
+# Initiate cluster
+cl <- makeCluster(no_cores)
+```
+
+## Acquisition of data
+The data is downloaded from the [link](https://d396qusza40orc.cloudfront.net/dsscapstone/dataset/Coursera-SwiftKey.zip)
+provided in the instructions of the project. Following three US files are loaded
+from the data provided:
+
+* en_US.blogs.txt
+* en_US.twitter.txt
+* en_US.news.txt
+
+```{r message=FALSE,warning=FALSE}
+if(!file.exists("sampled_data_clean.RData")){
+  data_path = list(US_Blog = "../data/final/en_US/en_US.blogs.txt",
+                     US_Twitter = "../data/final/en_US/en_US.twitter.txt",
+                     US_News = "../data/final/en_US/en_US.news.txt")
+  data = map(data_path,readLines)
+}
+```
+
+## Basic Summary of Data
+
+```{r basic_summary,message=FALSE,warning=FALSE}
+if(!file.exists("basic_summary.RData")){
+  basic_summary <- map_dfr(data,
+                            function(x){
+                              list(lines = length(x),
+                                   chars = sum(nchar(x)), 
+                                   chars_longest_line = max(nchar(x)))
+                            })
+  size = map_dbl(data_path, function(x){ 
+                          file_info <-file.info(x)
+                          file_info$size/(1024 * 1024)
+                          })
+  basic_summary$size_mb <- size
+  basic_summary <- as.data.frame(basic_summary)
+  row.names(basic_summary) <- names(data_path)
+  save(basic_summary,file="basic_summary.RData")
+}else{
+  load("basic_summary.RData")
+}
+basic_summary %>% kable()
+```
+
+## Data Preprocessing
+Following pre-processing is done on the data:
+
+* Data is sampled as data is too large. Only 3 % of the data is taken from each 
+data file.
+* Corpus is generated
+* Following transformations are performed:
+    1. NonASCII characters are removed.
+    2. Expand common words like won't, etc.
+    3. Words are uncapitalized.
+    4. Profanity words are removed.
+    5. URLs are removed.
+    6. Punctuations are removed.
+    7. Numbers are removed.
+    8. Spaces are removed.
+    9. All the sentences which contain contain null or only space are removed.
+* Tokenizing using keras library.    
+* Encoding the data using tokenizer built above.
+* Crearing the word sequences.
+
+### Creating Sample
+
+```{r creating_sample,warning=FALSE,message=FALSE}
+
+set.seed(1234)
+
+if(!file.exists("sampled_data_clean.RData")){
+  
+  sampled_data <- map(data,function(x){
+                              sample(x,length(x) * 0.05)
+                      }
+                    )
+  sampled_data <- c(sampled_data[['US_Blog']],sampled_data[['US_Twitter']],
+                    sampled_data[['US_News']])
+  
+  # cleaning unused variale 
+  rm(data,data_path,basic_summary)
+  invisible(gc())
+}
+```
+
+### Cleaning the data
+
+```{r clean_data,warning=FALSE,message=FALSE}
+if(!file.exists("sampled_data_clean.RData")){
+  
+  profanity <- readLines("https://www.cs.cmu.edu/~biglou/resources/bad-words.txt")
+  clean.text <- function(doc,profanity) {
+      suppressMessages(library(tm))
+      
+      # Removing Non-ASCII characters to ASCII
+      doc <- iconv(doc, "latin1", "ASCII", sub="")
+      
+      # "won't" is a special case as it does not expand to "wo not"
+      doc <- gsub("won't", "will not", doc)
+      doc <- gsub("can't", "can not", doc)
+      doc <- gsub("n't", " not", doc)
+      doc <- gsub("'ll", " will", doc)
+      doc <- gsub("'re", " are", doc)
+      doc <- gsub("'ve", " have", doc)
+      doc <- gsub("'m", " am", doc)
+      doc <- gsub("'d", " would", doc)
+      # 's could be 'is' or could be possessive: it has no expansion
+      doc <- gsub("'s", "", doc)
+      
+      # Uncapitalizing the words
+      doc <- tolower(doc)
+  
+      # removing the profanity words
+      doc <- removeWords(doc,profanity)
+  
+      # removing the hyper links
+      doc <- gsub("http[[:alnum:][:punct:]]*","",doc)
+      doc <- gsub("[[:punct:]]*","",doc)
+      doc <- gsub("[[:digit:]]*","",doc)
+      doc <- gsub("\\s+"," ",doc)
+      
+      return(doc)
+  }
+  
+  opb <- pboptions(type="txt")
+  
+  # cleaning the samples
+  sampled_data_clean <- pbsapply(sampled_data,clean.text,
+                               profanity,USE.NAMES = FALSE,cl=cl)
+
+  sampled_data_clean <- gsub("^\\s+|\\s+$","",sampled_data_clean)
+  
+  sampled_data_clean <- sampled_data_clean[!(sampled_data_clean == "" | sampled_data_clean == " ")]
+
+  # Removing all the sentences whose length is less than 5
+  l <- map_dbl(strsplit(sampled_data_clean,split = " "),length)
+  sampled_data_clean <- sampled_data_clean[l >= 5]
+  
+  save(sampled_data_clean, file="sampled_data_clean.RData")
+  rm(sampled_data,profanity)
+  invisible(gc())
+}else{
+  if(!file.exists("x_y_data.csv")){
+    load("sampled_data_clean.RData")
+  }
+}
+```
+
+### Creating the tokenizer
+```{r create_tokenizer,results=FALSE,message=FALSE}
+if(!file.exists("tokenizer.RData")){
+  tokenizer <- text_tokenizer() %>% fit_text_tokenizer(sampled_data_clean)
+  save_text_tokenizer(tokenizer,"tokenizer.RData")
+  py_save_object(tokenizer,"tokenizer.pickle")
+  
+}else{
+    tokenizer <- load_text_tokenizer("tokenizer.RData")
+}
+vocab_size = length(tokenizer$word_index)
+```
+
+### Encode the data
+
+```{r encode_data,results=FALSE,message=FALSE}
+if(!file.exists("encoded_data.RData")){
+  encoded_data <- texts_to_sequences(tokenizer,sampled_data_clean)
+  save(encoded_data,file = "encoded_data.RData")
+  
+  rm(sampled_data_clean)
+  invisible(gc())
+}else{
+  if(!file.exists("x_y_data.csv")){
+    load("encoded_data.RData")
+  }
+}
+
+```
+
+### Creating Word Sequences
+```{r create_sequences,results=FALSE,message=FALSE}
+if(!file.exists("x_y_data.csv")){
+  plan(multiprocess)
+  map_xy_dfr <- function(encoded){
+    map_dfr(5:length(encoded),
+            function(x){
+              data_frame(x1 = c(encoded[x-4]),
+                         x2 = c(encoded[x-3]),
+                         x3 = c(encoded[x-2]), 
+                         x4 = c(encoded[x-1]),
+                         y = c(encoded[x])
+                         )
+            }
+    )
+  }
+  x_y_data <- future_map_dfr(encoded_data,map_xy_dfr,.progress=TRUE)
+  ys <- x_y_data %>% group_by(y) %>% summarise(n = n()) %>% 
+          filter(n>20) %>% arrange(desc(y))
+  
+  x_y_data <- x_y_data %>% filter(y %in% ys$y)
+  
+  write_csv(x_y_data,"x_y_data.csv")
+  
+  rm(encoded_data)
+  invisible(gc())
+}else{
+  x_y_data <- read_csv("x_y_data.csv",
+                       col_types = list(
+                                     x1 = col_integer(),
+                                     x2 = col_integer(),
+                                     x3 = col_integer(),
+                                     x4 = col_integer(),
+                                     y = col_integer()
+                                    )
+                       )
+}
+```
+
+

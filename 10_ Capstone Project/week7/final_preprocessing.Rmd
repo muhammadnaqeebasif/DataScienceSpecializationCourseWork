@@ -1,0 +1,365 @@
+---
+title: "Final Pre-processing"
+author: "Naqeeb Asif"
+date: "9 January 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r libraries,echo=FALSE,message=FALSE,warning=FALSE}
+library(keras)
+library(purrr)
+library(tidyverse)
+library(tidytext)
+library(parallel)
+library(pbapply)
+library(furrr)
+library(reticulate)
+library(tm)
+library(knitr)
+# Calculate the number of cores
+no_cores <- detectCores() - 1
+
+# Initiate cluster
+cl <- makeCluster(no_cores)
+```
+
+## Synapsis
+This document describes the data acquisition, basic summaries, cleaning, 
+pre-processing  and basic exploratory analysis done in correspondence to the 
+requirements in Data Science Capstone Projects.
+
+## Acquisition of data and basic Summary
+The data is downloaded from the [link](https://d396qusza40orc.cloudfront.net/dsscapstone/dataset/Coursera-SwiftKey.zip)
+provided in the instructions of the project. Following three US files are loaded
+from the data provided:
+
+* en_US.blogs.txt
+* en_US.twitter.txt
+* en_US.news.txt
+
+```{r acquisition,echo=FALSE,results=FALSE,cache=TRUE,message=FALSE,warning=FALSE}
+if(!file.exists("data_samples.RData")){
+  ifelse(dir.exists("../data/"),FALSE,dir.create("../data"))
+  ifelse(!file.exists("../data/Coursera-SwiftKey.zip"),
+         download.file("https://d396qusza40orc.cloudfront.net/dsscapstone/dataset/Coursera-SwiftKey.zip","../data/Coursera-SwiftKey.zip"),FALSE)
+  ifelse(dir.exists("../data/final/"),FALSE,unzip("../data/Coursera-SwiftKey.zip",exdir = file.path("../data/"),overwrite = FALSE))
+  
+  data_path = list(US_Blog = "../data/final/en_US/en_US.blogs.txt",
+                 US_Twitter = "../data/final/en_US/en_US.twitter.txt",
+                 US_News = "../data/final/en_US/en_US.news.txt")
+  data = map(data_path,readLines)
+  
+  basic_summary <- map_dfr(data,
+                            function(x){
+                              list(lines = length(x),
+                                   chars = sum(nchar(x)), 
+                                   chars_longest_line = max(nchar(x)))
+                            })
+  
+  size = map_dbl(data_path, function(x){ 
+                          file_info <-file.info(x)
+                          file_info$size/(1024 * 1024)
+                          })
+  basic_summary$size_mb <- size
+  basic_summary <- as.data.frame(basic_summary)
+  row.names(basic_summary) <- names(data_path)
+  save(basic_summary,file="basic_summary.RData")
+  
+}
+```
+
+The basic summary of the data is as follows:
+```{r basic_summary, echo=FALSE,results=FALSE,cache=TRUE,message=FALSE,warning=FALSE}
+
+load("basic_summary.RData")
+
+basic_summary %>% kable()
+```
+
+## Data Preprocessing
+Following pre-processing is done on the data:
+
+* Data is sampled as data is too large. Only 5 % of the data is taken from the combined
+data and 3-different samples are taken in order to make models more accurate.
+* Following transformations are performed:
+
+    1. NonASCII characters are removed.
+    2. Profanity words are removed.
+    3. StopWords are removed.
+    4. URLs are removed.
+    5. Punctuations are removed.
+    6. Numbers are removed.
+    7. Words are uncapitalized.
+    8. Spaces are removed.
+
+```{r create_sample,echo=FALSE,cache=TRUE,warning=FALSE}
+if(!file.exists("cleaned_data_samples.RData")){
+  if(!file.exists("data_samples.RData")){
+    
+    data <- c(data$US_Blog,data$US_Twitter,data$US_News)
+    set.seed(1234)
+  
+    data_samples <- map(1:10,
+                      function(x,size){
+                        sample(data,size)  
+                      }, length(data)* 0.05
+                    )
+    save(data_samples,file = "data_samples.RData")
+  }else{
+    load("data_samples.RData")
+  }
+}
+```
+
+```{r clean_data,echo=FALSE,cache=TRUE,warning=FALSE}
+# Clean Data
+profanity <- readLines("https://www.cs.cmu.edu/~biglou/resources/bad-words.txt")
+clean.text <- function(doc,profanity) {
+  library(tm)
+  doc <- iconv(doc, "latin1", "ASCII", sub="")
+  # "won't" is a special case as it does not expand to "wo not"
+  doc <- gsub("won't", "will not", doc)
+  doc <- gsub("can't", "can not", doc)
+  doc <- gsub("n't", " not", doc)
+  doc <- gsub("'ll", " will", doc)
+  doc <- gsub("'re", " are", doc)
+  doc <- gsub("'ve", " have", doc)
+  doc <- gsub("'m", " am", doc)
+  doc <- gsub("'d", " would", doc)
+  # 's could be 'is' or could be possessive: it has no expansion
+  doc <- gsub("'s", "", doc)
+  doc <- tolower(doc)
+  
+  doc <- removeWords(doc,profanity)
+  
+  doc <- gsub("http[[:alnum:][:punct:]]*","",doc)
+  doc <- gsub("[[:punct:]]*","",doc)
+  doc <- gsub("[[:digit:]]*","",doc)
+  doc <- gsub("\\s+"," ",doc)
+  
+  return(doc)
+}
+
+if(!file.exists("cleaned_data_samples.RData")){
+  opb <- pboptions(type="txt")
+  
+  # cleaning the samples
+  cleaned_data_samples <- pblapply(data_samples,clean.text,
+                             profanity,cl=cl)
+  # creating the data frame
+  cleaned_data_samples <- pblapply(cleaned_data_samples,
+                             function(x){
+                              library(tidyverse)  
+                              data_frame(sentences=x)
+                              }, cl=cl)
+  save(cleaned_data_samples,file = "cleaned_data_samples.RData")
+}else{
+  load("cleaned_data_samples.RData")
+}
+
+```
+
+## Creating Models
+Following two approaches are taken for predicting the next word:
+
+1. N-gram Modelling
+2. Deep Learning Model
+
+### N-gram Modelling
+Following N-gram Models are created:
+
+1. Unigram
+2. Bigram
+3. Trigram
+4. Fourgram
+5. Fivegram
+
+```{r create_n_gram,echo=FALSE,message=FALSE,warning=FALSE}
+create_ngram <- function(ngram=1){
+  
+  create_ngram_sampled <- function(data,n=1){
+    library(tidytext)
+    library(tidyverse)
+    
+    data %>% unnest_tokens(dgram,sentences,token = "ngrams",
+                            n = ngram) %>%
+          count(dgram, sort = TRUE) 
+    
+  }
+  
+  opb <- pboptions(type="txt")
+  dgram_sampled <- pblapply(cleaned_data_samples,create_ngram_sampled,
+                            ngram,cl=cl)
+  
+  bind_rows(dgram_sampled) %>% 
+    group_by(dgram) %>% 
+    summarise(count=sum(n)) %>%
+    mutate(count = count / 10) %>%
+    filter(count >= 1) %>% 
+    arrange(desc(count)) %>%
+    separate(dgram,sapply(1:ngram,function(x){paste0('word',x)}),sep = ' ') 
+} 
+
+```
+
+```{r unigram,echo=FALSE,message=FALSE,warning=FALSE}
+if (!file.exists("N_gram_Models/unigram.RData")){
+  unigram <- create_ngram(1) 
+  unigram <- unigram %>% rename(sentence = word1)
+  save(unigram,file="N_gram_Models/unigram.RData")
+}else{
+  load("N_gram_Models/unigram.RData")
+}
+```
+
+```{r bigram,echo=FALSE,message=FALSE,warning=FALSE}
+if (!file.exists("N_gram_Models/bigram.RData")){
+  
+  bigram <- create_ngram(2)
+  bigram <- bigram %>% rename(sentence=word1,output=word2)
+  save(bigram,file="N_gram_Models/bigram.RData")
+  
+}else{
+  load("N_gram_Models/bigram.RData")
+}
+```
+
+```{r trigram,echo=FALSE,message=FALSE,warning=FALSE}
+if (!file.exists("N_gram_Models/trigram.RData")){
+  trigram <- create_ngram(3)
+  trigram <- trigram %>% 
+              unite(sentence,word1,word2,sep = ' ') %>%   
+              rename(output=word3)
+                                
+  save(trigram,file="N_gram_Models/trigram.RData")
+}else{
+  load("N_gram_Models/trigram.RData")
+}
+```
+
+```{r fourgram,echo=FALSE,message=FALSE,warning=FALSE}
+if (!file.exists("N_gram_Models/fourgram.RData")){
+  fourgram <- create_ngram(4)
+  fourgram <- fourgram %>% unite(sentence,word1,word2,word3, sep=' ') %>%   
+                                  rename(output=word4)
+                              
+  save(fourgram,file="N_gram_Models/fourgram.RData")
+}else{
+  load("N_gram_Models/fourgram.RData")
+}
+```
+
+
+```{r fivegram,echo=FALSE,message=FALSE,warning=FALSE}
+if (!file.exists("N_gram_Models/fivegram.RData")){
+  fivegram <- create_ngram(5)
+  fivegram <- fivegram %>% unite(sentence,word1,word2,word3,word4, sep=' ') %>%   
+                                  rename(output=word5)
+                           
+  save(fivegram,file="N_gram_Models/fivegram.RData")
+}else{
+  load("N_gram_Models/fivegram.RData")
+}
+```
+
+### Deep Learning Model
+Samples are concatenated first and duplicates are removed from the data. After that it is sampled.
+After removing the duplicates following transformations are applied:
+
+1. The data is first filtered so that the data only contains the line whose length is greater than 1.
+2. The data is then vectorized using tokenizer from keras.
+3. Create sequences of length 5 such that first 4 values are input features while 5th one in output feature.
+
+After getting the processed data LSTM model is trained in python because of the 
+unnecessary memory usage in R it is difficult to train the huge data with R.
+
+#### Combining and Filtering the data
+```{r combine_unique,echo=FALSE}
+
+if(!file.exists("encoded_data.RData") || !file.exists("tokenizer.RData")){
+  combined_data <- bind_rows(cleaned_data_samples) %>% distinct()
+  
+  #Filtering the data
+  l <- map_dbl(strsplit(combined_data$sentences," "),length)
+  combined_data <- combined_data[l>1,]
+  
+  # Sampling the data
+  set.seed(1234)
+  sampled_data = sample(combined_data$sentences,dim(combined_data)*0.1)
+}
+```
+
+
+#### Creating Tokenizer
+```{r toknizer,echo=FALSE}
+if(!file.exists("tokenizer.RData")){
+  tokenizer <- text_tokenizer() %>% fit_text_tokenizer(sampled_data)
+  save_text_tokenizer(tokenizer,"tokenizer.RData")
+  py_save_object(tokenizer, "tokenizer.pickle")
+}else{
+  tokenizer <- load_text_tokenizer("tokenizer.RData")
+}
+vocab_size = length(tokenizer$index_word)
+```
+
+#### Encoding the data
+```{r encoding_data,echo=FALSE}
+if(!file.exists("x_y_data.csv")){
+  if(!file.exists("encoded_data.RData")){
+    encoded_data <- texts_to_sequences(tokenizer, sampled_data)
+    save(encoded_data,file="encoded_data.RData")
+  }else{
+    load("encoded_data.RData")
+  }
+}
+```
+
+#### Create Sequences
+```{r}
+plan(multiprocess)
+map_xy_dfr <- function(encoded){
+  end <- length(encoded)
+  start <- ifelse(end >= 5,5,end)
+  map_dfr(start:end,
+            function(x){
+              data_frame(x1 = ifelse(x<=4,0,c(encoded[x-4])),
+                         x2 = ifelse(x<=3,0,c(encoded[x-3])),
+                         x3 = ifelse(x==2,0,c(encoded[x-2])), 
+                         x4 = c(encoded[x-1]),
+                         y = c(encoded[x])
+                         )
+            })
+  
+              
+}
+if(!file.exists("x_y_data.csv")){
+  if(!file.exists("x_y_data1.RData")){
+    x_y_data_1 <- future_map_dfr(encoded_data[1:(length(encoded_data)/2)],map_xy_dfr,.progress=TRUE)
+    save(x_y_data_1,file="x_y_data1.RData")
+    write_csv(x_y_data_1,"x_y_data_1.csv")
+    
+    }else{
+      load("x_y_data1.RData")
+  }
+  
+  if(!file.exists("x_y_data2.RData")){
+    x_y_data_2 <- future_map_dfr(encoded_data[(length(encoded_data)/2 +1): length(encoded_data)],map_xy_dfr,.progress=TRUE)
+    save(x_y_data_2,file="x_y_data2.RData")
+    write_csv(x_y_data_2,"x_y_data_2.csv")
+
+  }else{
+    load("x_y_data2.RData")
+  }
+  x_y_data <- bind_rows(x_y_data_1,x_y_data_2)
+  write_csv(x_y_data,"x_y_data.csv")
+}else{
+  x_y_data <- read_csv("x_y_data.csv")
+}
+
+```
+
+

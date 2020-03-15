@@ -1,0 +1,267 @@
+---
+title: "Keras Model Project"
+author: "Naqeeb Asif"
+date: "15 December 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+library(keras)
+library(purrr)
+library(tidyverse)
+library(tidytext)
+library(parallel)
+library(pbapply)
+library(furrr)
+# Calculate the number of cores
+no_cores <- detectCores() - 1
+
+# Initiate cluster
+cl <- makeCluster(no_cores)
+```
+
+## Acquisition
+```{r acquisition,echo=FALSE,results=FALSE,cache=TRUE,message=FALSE,warning=FALSE}
+if(!file.exists("x_y_data.RData")){
+  if(!file.exists("data_cleaned.RData")){
+    ifelse(dir.exists("../data/"),FALSE,dir.create("../data"))
+    ifelse(!file.exists("../data/Coursera-SwiftKey.zip"),
+           download.file("https://d396qusza40orc.cloudfront.net/dsscapstone/dataset/Coursera-SwiftKey.zip","../data/Coursera-SwiftKey.zip"),FALSE)
+    ifelse(dir.exists("../data/final/"),FALSE,unzip("../data/Coursera-SwiftKey.zip",exdir = file.path("../data/"),overwrite = FALSE))
+    
+    data_path = list(US_Blog = "../data/final/en_US/en_US.blogs.txt",
+                   US_Twitter = "../data/final/en_US/en_US.twitter.txt",
+                   US_News = "../data/final/en_US/en_US.news.txt")
+    data = map(data_path,readLines)
+    data <- c(data$US_Blog,data$US_Twitter,data$US_News)
+    
+  }else{
+    load("data_cleaned.RData")
+  }
+}
+```
+
+The basic summary of the data is as follows:
+
+## Data Preprocessing
+Following pre-processing is done on the data:
+
+* Data is sampled as data is too large. Only 3 % of the data is taken from each 
+data file.
+* Corpus is generated
+* Following transformations are performed:
+
+    1. NonASCII characters are removed.
+    2. Profanity words are removed.
+    3. StopWords are removed.
+    4. URLs are removed.
+    5. Punctuations are removed.
+    6. Numbers are removed.
+    7. Words are uncapitalized.
+    8. Spaces are removed.
+  
+* Creating DocumentTermMatrices:
+    1. 1-Gram
+    2. 2-Gram
+    3. 3-Gram
+    4. 4-Gram
+
+```{r clean_corpus,eval=FALSE,echo=FALSE,cache=TRUE,warning=FALSE}
+# Clean Data
+profanity <- readLines("https://www.cs.cmu.edu/~biglou/resources/bad-words.txt")
+clean.text <- function(doc,profanity) {
+  library(tm)
+  doc <- iconv(doc, "latin1", "ASCII", sub="")
+  # "won't" is a special case as it does not expand to "wo not"
+  doc <- gsub("won't", "will not", doc)
+  doc <- gsub("can't", "can not", doc)
+  doc <- gsub("n't", " not", doc)
+  doc <- gsub("'ll", " will", doc)
+  doc <- gsub("'re", " are", doc)
+  doc <- gsub("'ve", " have", doc)
+  doc <- gsub("'m", " am", doc)
+  doc <- gsub("'d", " would", doc)
+  # 's could be 'is' or could be possessive: it has no expansion
+  doc <- gsub("'s", "", doc)
+  doc <- tolower(doc)
+  
+  doc <- removeWords(doc,profanity)
+  #doc <- gsub(prof_reg1,'',doc)
+  #doc <- gsub(prof_reg2,'',doc)
+  
+  doc <- gsub("http[[:alnum:][:punct:]]*","",doc)
+  doc <- gsub("[[:punct:]]*","",doc)
+  doc <- gsub("[[:digit:]]*","",doc)
+  doc <- gsub("\\s+"," ",doc)
+  
+  return(doc)
+}
+```
+
+```{r}
+if(!file.exists("x_y_data.RData")){
+  if(!file.exists("data_cleaned.RData")){
+    opb <- pboptions(type="txt")
+      
+      # cleaning the samples
+    data_clean <- pbsapply(data,clean.text,profanity,cl=cl, 
+                           USE.NAMES = FALSE
+                          )
+    data_clean <- data_clean[!(data_clean == "")]
+    data_clean <- data_clean[!(data_clean == " ")]
+    
+    save(data_clean,file="data_cleaned.RData")
+  }
+}
+```
+
+## Creating Tokenizer
+```{r}
+if(!file.exists("tokenizer.RData")){
+  tokenizer <- text_tokenizer() %>% fit_text_tokenizer(data_clean)
+  save_text_tokenizer(tokenizer,"tokenizer.RData")
+}else{
+  tokenizer <- load_text_tokenizer("tokenizer.RData")
+}
+vocab_size = length(tokenizer$index_word)
+```
+
+## Encoding
+```{r}
+if(!file.exists("x_y_data.RData")){
+  if (!file.exists("encoded_data.RData")){
+    encoded_data <- texts_to_sequences(tokenizer, data_clean)
+    save(encoded_data,file="encoded_data.RData")
+  }else{
+    load("encoded_data.RData")
+  }
+}
+```
+
+## Create Sequences
+```{r}
+plan(multiprocess)
+map_xy_dfr <- function(encoded){
+                map_dfr(5:length(encoded),
+                        function(x){
+                          data_frame(x1 = c(encoded[x-4]),
+                                     x2 = c(encoded[x-3]),
+                                     x3 = c(encoded[x-2]), 
+                                     x4 = c(encoded[x-1]),
+                                     y = c(encoded[x])
+                                     )
+                        })
+}
+
+if(!file.exists("x_y_data.RData")){
+  if(!file.exists("x_y_data1.RData")){
+    x_y_data_1 <- future_map_dfr(encoded_data[1:(length(encoded_data)/2)],map_xy_dfr,.progress=TRUE)
+    save(x_y_data_1,file="x_y_data1.RData")
+    
+    }else{
+      load("x_y_data1.RData")
+  }
+  
+  if(!file.exists("x_y_filtered_info.RData")){
+    x_y_data_2 <- future_map_dfr(encoded_data[(length(encoded_data)/2 +1): length(encoded_data)],map_xy_dfr,.progress=TRUE)
+    save(x_y_data_2,file="x_y_data2.RData")
+  }else{
+    load("x_y_data2.RData")
+  }
+  x_y_data <- bind_rows(x_y_data_1,x_y_data_2)
+  load("x_y_data.RData")
+  ys <- x_y_data %>% 
+          group_by(y) %>% 
+          summarise(n = n()) %>%
+          filter(n>20) %>% arrange(desc(y))
+  
+  x_y_filtered <- x_y_data %>%
+                   filter(y %in% ys$y)
+  y_vocab <- ys$y[[1]]
+  total_size <- dim(x_y_filtered)[[1]]
+  
+  save(x_y_filtered, y_vocab,total_size,file="x_y_filtered.RData")
+  write_csv(x_y_filtered,"x_y_filtered.csv",col_names = FALSE)
+}else{
+  load("x_y_filtered.RData")
+}
+```
+
+## Create Model
+```{r}
+
+model <- keras_model_sequential()
+model <- model %>%
+          layer_embedding(vocab_size,10,input_length = 4) %>%
+          layer_lstm(100) %>%
+          layer_dense(50,activation = 'relu') %>%
+          layer_dense(y_vocab,activation = 'softmax')
+print(summary(model))
+
+model %>% compile(loss='categorical_crossentropy', 
+                  optimizer='adam', metrics=c('accuracy'))
+```
+
+
+
+```{r}
+
+```
+
+```{r}
+data_generator <- function(x_y_data,batch_size,total_size){
+  total_size <- dim(x_y_data)[[1]]
+  set.seed(123)
+  function(){
+    sample_data <- sample(1:total_size,batch_size)
+    data <- x_y_data[sample_data,]
+    m <- as.matrix(data)
+    rm(data)
+    colnames(m) <- NULL
+    X <- m[,1:4]
+    y <- m[,5]
+    rm(m)
+    y_train <- to_categorical(y,num_classes = y_vocab)
+    list(X,y_train)
+  }
+}
+data_generator_new <- function(batch_size,total_size){
+  file_name <- "x_y_filtered.csv"
+  skip <- 0
+  function(){
+    data <- read_csv(file_name,col_names = FALSE,
+                     col_types = list(
+                                    X1 = col_integer(),
+                                    X2 = col_integer(),
+                                    X3 = col_integer(),
+                                    X4 = col_integer(),
+                                    X5 = col_integer()),
+                     skip = skip,n_max = batch_size)
+    
+    skip <<- ifelse(skip+batch_size > total_size, 0,skip+batch_size)
+    m <- as.matrix(data)
+    colnames(m) <- NULL
+    X <- m[,1:4]
+    y <- m[,5]
+    y_train <- to_categorical(y,num_classes = y_vocab)
+    rm(m,y)
+    list(X,y_train)
+  }
+}
+```
+
+```{r}
+model %>% fit_generator(data_generator(x_y_filtered,128,total_size),
+                        steps_per_epoch =1000,epochs = 4)
+
+```
