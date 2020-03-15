@@ -1,0 +1,255 @@
+---
+title: "Data Science Specialization Capstone Project - Week 2"
+author: "Naqeeb Asif"
+date: "4 December 2018"
+output:
+  html_document:
+    toc: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Synapsis
+This document describes the data acquisition, basic summaries, cleaning, 
+pre-processing  and basic exploratory analysis done in correspondence to the 
+requirements in Data Science Capstone Projects.
+
+## Acquisition of data and basic Summary
+The data is downloaded from the [link](https://d396qusza40orc.cloudfront.net/dsscapstone/dataset/Coursera-SwiftKey.zip)
+provided in the instructions of the project. Following three US files are loaded
+from the data provided:
+
+* en_US.blogs.txt
+* en_US.twitter.txt
+* en_US.news.txt
+```{r loadLibraries,echo=FALSE,warning=FALSE,message=FALSE}
+library(tidyverse)
+library(tidytext)
+library(parallel)
+library(pbapply)
+# Calculate the number of cores
+no_cores <- detectCores() - 1
+
+# Initiate cluster
+cl <- makeCluster(no_cores)
+```
+
+```{r acquisition,echo=FALSE,results=FALSE,cache=TRUE,message=FALSE,warning=FALSE}
+ifelse(dir.exists("../data/"),FALSE,dir.create("../data"))
+ifelse(!file.exists("../data/Coursera-SwiftKey.zip"),download.file("https://d396qusza40orc.cloudfront.net/dsscapstone/dataset/Coursera-SwiftKey.zip","../data/Coursera-SwiftKey.zip"),FALSE)
+ifelse(dir.exists("../data/final/"),FALSE,unzip("../data/Coursera-SwiftKey.zip",exdir = file.path("../data/"),overwrite = FALSE))
+
+if(!file.exists("data_final.RData")){
+  data_path = list(US_Blog = "../data/final/en_US/en_US.blogs.txt",
+                 US_Twitter = "../data/final/en_US/en_US.twitter.txt",
+                 US_News = "../data/final/en_US/en_US.news.txt")
+  data = map(data_path,readLines)
+  data <- c(data$US_Blog,data$US_Twitter,data$US_News)
+  save(data,file = "data_final.RData")
+}else{
+  if(!file.exists("sampled_data_clean.RData")){
+    load("data_final.RData")
+    }
+}
+```
+
+The basic summary of the data is as follows:
+
+## Data Preprocessing
+Following pre-processing is done on the data:
+
+* Data is sampled as data is too large. Only 3 % of the data is taken from each 
+data file.
+* Corpus is generated
+* Following transformations are performed:
+
+    1. NonASCII characters are removed.
+    2. Profanity words are removed.
+    3. StopWords are removed.
+    4. URLs are removed.
+    5. Punctuations are removed.
+    6. Numbers are removed.
+    7. Words are uncapitalized.
+    8. Spaces are removed.
+  
+* Creating DocumentTermMatrices:
+    1. 1-Gram
+    2. 2-Gram
+    3. 3-Gram
+    4. 4-Gram
+
+```{r clean_corpus,eval=FALSE,echo=FALSE,cache=TRUE,warning=FALSE}
+# Clean Data
+profanity <- readLines("https://www.cs.cmu.edu/~biglou/resources/bad-words.txt")
+clean.text <- function(doc,profanity) {
+  library(tm)
+  doc <- iconv(doc, "latin1", "ASCII", sub="")
+  # "won't" is a special case as it does not expand to "wo not"
+  doc <- gsub("won't", "will not", doc)
+  doc <- gsub("can't", "can not", doc)
+  doc <- gsub("n't", " not", doc)
+  doc <- gsub("'ll", " will", doc)
+  doc <- gsub("'re", " are", doc)
+  doc <- gsub("'ve", " have", doc)
+  doc <- gsub("'m", " am", doc)
+  doc <- gsub("'d", " would", doc)
+  # 's could be 'is' or could be possessive: it has no expansion
+  doc <- gsub("'s", "", doc)
+  doc <- tolower(doc)
+  
+  doc <- removeWords(doc,profanity)
+  #doc <- gsub(prof_reg1,'',doc)
+  #doc <- gsub(prof_reg2,'',doc)
+  
+  doc <- gsub("http[[:alnum:][:punct:]]*","",doc)
+  doc <- gsub("[[:punct:]]*","",doc)
+  doc <- gsub("[[:digit:]]*","",doc)
+  doc <- gsub("\\s+"," ",doc)
+  
+  return(doc)
+}
+```
+
+```{r}
+set.seed(1234)
+create_sample <- function(x){
+  sample(data,length(data)* 0.01)
+}
+
+forced <- FALSE
+
+# fix (expand) contractions
+if(!file.exists("sampled_data_clean.RData") || forced){
+  sampled_data <- map(1:100,create_sample)
+  names(sampled_data) <- 1:100  
+  opb <- pboptions(type="txt")
+  
+  # cleaning the samples
+  sampled_data_clean <- pblapply(sampled_data,clean.text,
+                             profanity,cl=cl)
+  
+  # creating the data frame
+  sampled_data_clean <- pblapply(sampled_data_clean,
+                             function(x){
+                              library(tidyverse)  
+                              data_frame(sentences=x)
+                              },
+                             cl=cl)
+  
+  save(sampled_data_clean,file = "sampled_data_clean.RData")
+
+} else{
+    load("sampled_data_clean.RData")
+}
+
+
+```
+
+
+```{r}
+create_ngram <- function(ngram=1){
+  
+  create_ngram_sampled <- function(data,n=1){
+    library(tidytext)
+    library(tidyverse)
+    data %>% unnest_tokens(dgram,sentences,token = "ngrams", n = ngram) %>%
+                  count(dgram, sort = TRUE)
+  }
+  
+  opb <- pboptions(type="txt")
+  dgram_sampled <- pblapply(sampled_data_clean,create_ngram_sampled,ngram,cl=cl)
+  
+  dgram <- bind_rows(dgram_sampled) %>% 
+              group_by(dgram) %>%
+              summarise(count = mean(n)) %>%
+              filter(count>1) %>% arrange(desc(count)) %>%
+              separate(dgram,sapply(1:ngram,function(x){paste0('word',x)}),sep = ' ')
+  
+  dgram
+  
+  
+} 
+
+```
+
+### Bigram
+```{r}
+if(!file.exists("bigram.RData") || forced){
+  bigram <- create_ngram(2)
+  
+  save(bigram,file = "bigram.RData")
+}else{
+  load("bigram.RData")
+}
+```
+
+### Trigram
+```{r}
+if(!file.exists("trigram.RData") || forced){
+  trigram <- create_ngram(3)
+  
+  save(trigram,file = "trigram.RData")
+}else{
+  load("trigram.RData")
+}
+```
+
+### Fourgram
+```{r}
+set.seed(1234)
+sample_50 <- sample(1:100,50)
+if(!file.exists("fourgram.RData") || forced){
+  if(!file.exists("fourgram_1.RData") || forced){
+     
+    fourgram_1 <- create_ngram(4,sampled_data_clean[sample_50])
+    
+    save(fourgram_1,file = "fourgram_1.RData")
+  }else{
+    load("fourgram_1.RData")
+  }
+  if(!file.exists("fourgram_2.RData") || forced){
+    fourgram_2 <- create_ngram(4,sampled_data_clean[-sample_50])
+    
+    save(fourgram_2,file = "fourgram_2.RData")
+  }else{
+    load("fourgram_2.RData")
+  }
+  fourgram <- bind_rows(fourgram_1,fourgram_2) %>% group_by(word1,word2,word3,word4) %>%
+              summarise(count = mean(count)) %>%
+              arrange(desc(count))
+  save(fourgram,file='fourgram.RData')
+}else{
+  load('fourgram.RData')
+}
+```
+
+### Prediction
+```{r}
+predict <- function(input,top= 5){
+  clean <- clean.text(input,profanity)
+  words <- strsplit(clean,split = ' ')
+  words <- unlist(words)
+  print("Bigram Prediction:")
+  bigram_pred <- bigram %>% filter(word1==words[length(words)]) %>% top_n(top)
+  print(bigram_pred%>%select(2))
+  print("Trigram Prediction")
+  
+  trigram_pred <- trigram %>% 
+                      filter(word1==words[length(words)-1],
+                             word2==words[length(words)]) %>%   
+                      top_n(top)
+  print(trigram_pred%>%select(3))
+  
+  print('FourGram Prediction')
+  
+  fourgram_pred <- fourgram %>% 
+                      filter(word1==words[length(words)-2],
+                             word2==words[length(words)-1],
+                             word3==words[length(words)]) %>%   
+                      top_n(top)
+  
+  print(fourgram_pred%>%select(4))
+}
+```
