@@ -523,7 +523,7 @@ g + geom_point(aes(colour=education))
 
 ```{r}
 modelFit<- train(wage~age+education+jobclass,method="lm",data=training)
-fitMod <- model$finalModel
+fitMod <- modelFit$finalModel
 print(fitMod)
 ```
 
